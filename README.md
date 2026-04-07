@@ -26,9 +26,9 @@
 
   🛡️ OpenClash (已预装 Meta / Mihomo 内核，直接可用)
 
-  🎨 Argon 主题 (默认启用)
+  🎨 Argon 主题
 
-  📁 KSMBD 极速内网共享
+  📁 KSMBD 内网共享
 
   💻 TTYD 网页终端
 
