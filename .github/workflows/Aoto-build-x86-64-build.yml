@@ -1,0 +1,88 @@
+name: OpenWrt x86_64 智慧自動編譯發布
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  workflow_dispatch: # 保留手動觸發
+    inputs:
+      openwrt_version:
+        description: '選擇版本 (或輸入 latest)'
+        required: true
+        default: 'latest'
+        type: string
+  schedule:
+    - cron: '0 0 * * *' # 💡 每天午夜 00:00 自動執行檢查
+
+jobs:
+  check_and_build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代碼
+        uses: actions/checkout@v4
+
+      - name: 🔍 檢測官方與本地版本是否一致
+        id: check_version
+        run: |
+          # 1. 獲取官方最新穩定版號 (例如: 25.12.2)
+          OFFICIAL_LATEST=$(curl -s "https://api.github.com/repos/openwrt/openwrt/releases" | grep '"tag_name":' | grep -v 'rc' | head -n 1 | cut -d '"' -f 4 | sed 's/v//')
+          
+          # 2. 獲取你自己倉庫最後一次 Release 的 OpenWrt 版本號
+          # 我們從 Release 的標題或描述中提取上次編譯的版本
+          MY_LATEST=$(curl -s "https://api.github.com/repos/${{ github.repository }}/releases/latest" | grep '"name":' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || echo "0.0.0")
+
+          echo "官方最新版本: $OFFICIAL_LATEST"
+          echo "本地最後發布: $MY_LATEST"
+
+          # 3. 判斷邏輯
+          if [ "$OFFICIAL_LATEST" != "$MY_LATEST" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "需要更新！將開始編譯版本: $OFFICIAL_LATEST"
+            echo "OWRT_VERSION=$OFFICIAL_LATEST" >> $GITHUB_ENV
+            echo "SHOULD_BUILD=true" >> $GITHUB_OUTPUT
+          else
+            echo "版本一致，無需更新。"
+            echo "SHOULD_BUILD=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 安裝編譯依賴
+        if: steps.check_version.outputs.SHOULD_BUILD == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses-dev zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip bzip2 patch python3 findutils zstd
+
+      - name: 下載並解壓 ImageBuilder
+        if: steps.check_version.outputs.SHOULD_BUILD == 'true'
+        run: |
+          wget -q https://downloads.openwrt.org/releases/${{ env.OWRT_VERSION }}/targets/x86/64/openwrt-imagebuilder-${{ env.OWRT_VERSION }}-x86-64.Linux-x86_64.tar.zst
+          tar -I zstd -xf openwrt-imagebuilder-${{ env.OWRT_VERSION }}-x86-64.Linux-x86_64.tar.zst
+          mv openwrt-imagebuilder-${{ env.OWRT_VERSION }}-x86-64.Linux-x86_64 imagebuilder
+
+      - name: 運行編譯腳本
+        if: steps.check_version.outputs.SHOULD_BUILD == 'true'
+        env:
+          ROOTFS_SIZE: '1024' # 定時執行時的預設值
+          MANAGEMENT_IP: '192.168.100.1'
+        run: |
+          chmod +x build.sh
+          cp build.sh imagebuilder/
+          cd imagebuilder
+          ./build.sh
+
+      - name: 生成發布標籤
+        if: steps.check_version.outputs.SHOULD_BUILD == 'true'
+        run: echo "release_tag=$(date +"%Y.%m.%d-%H%M")" >> $GITHUB_ENV
+
+      - name: 自動發布到 Releases
+        if: steps.check_version.outputs.SHOULD_BUILD == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.release_tag }}
+          name: OpenWrt ${{ env.OWRT_VERSION }} 自動更新版
+          files: imagebuilder/output-firmware/*
+          body: |
+            **🤖 偵測到官方版本更新，已自動完成構建**
+            - **OpenWrt 版本**: `${{ env.OWRT_VERSION }}`
+            - **構建時間**: `${{ env.release_tag }}`
+            - **預設 IP**: `192.168.100.1`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
