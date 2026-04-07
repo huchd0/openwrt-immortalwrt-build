@@ -1,0 +1,20 @@
+# 1. 更新软件源列表
+apk update
+
+# 2. 安装 Docker 及中文面板全家桶
+apk add dockerd docker docker-compose luci-app-dockerman luci-i18n-dockerman-zh-cn
+
+# 3. 停止刚安装好、正在默认区运行的 Docker
+/etc/init.d/dockerd stop
+
+# 4. 确保数据分区的数据目录存在 (如果之前有数据，这一步不会破坏原有数据)
+mkdir -p /mnt/sda3/docker
+
+# 5. 修改配置文件，让面板和底层都指向数据分区
+uci set dockerman.docker.data_root='/mnt/sda3/docker'
+uci commit dockerman
+
+# 6. 重新启动 Docker，认领旧数据！
+/etc/init.d/dockerd start
+
+echo "🎉 Docker 安装并重定向完毕！请使用 docker info 检查数据路径。"
