@@ -37,14 +37,11 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.luci_version }}" = "auto" ]; then
             echo "正在检索 Docker Hub 以查找最新稳定版本..."
-            # 逻辑说明：
-            # 1. 获取前 100 个标签
-            # 2. 匹配 x86-64-openwrt-数字.数字 格式
-            # 3. 使用 grep -v '-' 剔除所有包含横杠的标签（即剔除 rc, alpha, beta, snapshot）
+            # 删除了错误的 grep -v '-'
+            # 正则表达式已经确保只会匹配 x86-64-openwrt-数字.数字.数字 的纯稳定版
             LATEST_TAG=$(curl -s "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags/?page_size=100" | \
               jq -r '.results[].name' | \
               grep -E '^x86-64-openwrt-[0-9]+\.[0-9]+(\.[0-9]+)?$' | \
-              grep -v '-' | \
               sort -V | tail -n 1)
             
             if [ -z "$LATEST_TAG" ]; then
