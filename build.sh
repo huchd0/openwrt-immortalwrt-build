@@ -76,16 +76,16 @@ else
             uci set network.wan6.proto='dhcpv6'
             uci set network.wan6.device='eth0'
         else
-            uci add_list network.br_lan.ports="$iface" 
+            uci add_list network.@device[0].ports="\$iface" 
         fi
     done
 fi
 uci commit network
 
-# --- C. 智能大分区挂载保护 (为后续手动装 Docker 铺路) ---
-# 动态获取 sda3 的 UUID
-TARGET_UUID=$(blkid -s UUID -o value /dev/sda3 2>/dev/null)
-if [ -n "$TARGET_UUID" ]; then
+# --- C. 智能大分区挂载保护 ---
+# 这里的 \$ 确保命令在路由器开机时才执行
+TARGET_UUID=\$(blkid -s UUID -o value /dev/sda3 2>/dev/null)
+if [ -n "\$TARGET_UUID" ]; then
     echo "config 'global'" > /etc/config/fstab
     echo "  option  anon_swap   '0'" >> /etc/config/fstab
     echo "  option  anon_mount  '0'" >> /etc/config/fstab
@@ -106,6 +106,18 @@ if [ -d "/etc/apk/repositories.d" ]; then
     sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' /etc/apk/repositories.d/*.list
 fi
 
+# 增加网络连通性检测，防止因首次开机没网导致依赖下载失败
+echo "Waiting for network to install APKs..."
+count=0
+while ! ping -c 1 -W 1 223.5.5.5 &> /dev/null; do
+    sleep 2
+    count=\$((count+1))
+    if [ \$count -ge 15 ]; then
+        echo "Network timeout, trying offline install..."
+        break
+    fi
+done
+
 apk add -q --allow-untrusted /root/*.apk
 rm -f /root/*.apk
 
@@ -117,14 +129,15 @@ chmod +x files/etc/uci-defaults/99-custom-setup
 echo ">>> 5. 配置官方软件列表 <<<"
 PACKAGES="-dnsmasq dnsmasq-full \
 luci luci-base luci-compat luci-i18n-base-zh-cn \
-luci-i18n-firewall-zh-cn \
-luci-i18n-package-manager-zh-cn \
+luci-i18n-firewall-zh-cn luci-i18n-package-manager-zh-cn \
 luci-app-ttyd luci-i18n-ttyd-zh-cn \
 luci-app-ksmbd luci-i18n-ksmbd-zh-cn \
 block-mount blkid lsblk parted fdisk \
 kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat \
-coreutils-nohup bash curl ca-bundle ip-full iptables-mod-tproxy iptables-mod-extra \
-libcap libcap-bin kmod-tun kmod-inet-diag unzip kmod-nft-tproxy kmod-igc iwinfo"
+coreutils-nohup coreutils-base64 coreutils-sort bash jq curl ca-bundle \
+ip-full iptables-mod-tproxy iptables-mod-extra kmod-tun kmod-inet-diag \
+kmod-nft-tproxy kmod-igc iwinfo \
+libcap libcap-bin ruby ruby-yaml unzip"
 
 echo ">>> 6. 开始 Make Image 打包 <<<"
 make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files"
