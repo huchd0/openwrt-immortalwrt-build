@@ -38,15 +38,15 @@ OpenWrt 软件包搜索引擎：
   
   https://downloads.openwrt.org/releases/packages-25.12/x86_64/packages/
   
-    通常在一个版本的完整源路径下（比如 .../x86_64/ 后面），会有以下几个核心文件夹：
+     通常在一个版本的完整源路径下（比如 .../x86_64/ 后面），会有以下几个核心文件夹：
 
-    packages/：存放绝大多数第三方命令行工具和核心服务（比如 curl, bash, jq, iperf3, ruby 等）。
+     packages/：存放绝大多数第三方命令行工具和核心服务（比如 curl, bash, jq, iperf3, ruby 等）。
 
-    luci/：存放所有带有网页控制面板的插件和主题。比如你要找 luci-app-ttyd、luci-app-samba4 或者带中文的 luci-i18n-xxx-zh-cn，全都在这里面，不在 packages 里。
+     luci/：存放所有带有网页控制面板的插件和主题。比如你要找 luci-app-ttyd、luci-app-samba4 或者带中文的 luci-i18n-xxx-zh-cn，全都在这里面，不在 packages 里。
 
-    base/：存放系统最核心的基础组件和内核模块（比如网卡驱动 kmod-igc、USB驱动 kmod-usb-storage、以及 block-mount 等）。
+     base/：存放系统最核心的基础组件和内核模块（比如网卡驱动 kmod-igc、USB驱动 kmod-usb-storage、以及 block-mount 等）。
 
-    routing/：专门存放高级路由协议相关的软件（普通软路由一般用不到）。
+     routing/：专门存放高级路由协议相关的软件（普通软路由一般用不到）。
 
 🌟鸣谢
 
