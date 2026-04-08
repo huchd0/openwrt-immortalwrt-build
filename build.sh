@@ -133,22 +133,43 @@ EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
 
 echo ">>> 5. 配置官方软件列表 <<<"
-PACKAGES="-dnsmasq dnsmasq-full \
-luci luci-base luci-compat luci-i18n-base-zh-cn \
-luci-i18n-firewall-zh-cn luci-i18n-package-manager-zh-cn \
-luci-app-ttyd luci-i18n-ttyd-zh-cn \
-luci-app-ksmbd luci-i18n-ksmbd-zh-cn \
-luci-app-nlbwmon luci-i18n-nlbwmon-zh-cn \
-block-mount blkid lsblk parted fdisk \
-e2fsprogs \
-kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-exfat \
-coreutils-nohup coreutils-base64 coreutils-sort bash jq curl ca-bundle \
-ip-full iptables-mod-tproxy iptables-mod-extra kmod-tun kmod-inet-diag \
-kmod-nft-tproxy kmod-igc iwinfo \
-libcap libcap-bin ruby ruby-yaml unzip \
-nano htop ethtool tcpdump mtr traceroute conntrack iftop screen"
 
-echo ">>> 6. 开始 Make Image 打包 <<<"
+# 1. 核心网络与网页后台 (基础底座)
+PKG_CORE="-dnsmasq dnsmasq-full \
+luci luci-base luci-compat \
+luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn luci-i18n-package-manager-zh-cn"
+
+# 2. 磁盘管理与文件系统 (大分区与存储支持)
+PKG_DISK="block-mount blkid lsblk parted fdisk e2fsprogs \
+kmod-usb-storage kmod-usb-storage-uas \
+kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-exfat"
+
+# 3. 核心依赖与系统工具 (OpenClash 及日常脚本运行基础)
+PKG_DEPENDS="coreutils-nohup coreutils-base64 coreutils-sort bash jq curl ca-bundle \
+libcap libcap-bin ruby ruby-yaml unzip"
+
+# 4. 网络底层驱动与防火墙扩展 (代理与有线网络支持)
+PKG_NETWORK="ip-full iptables-mod-tproxy iptables-mod-extra kmod-tun kmod-inet-diag \
+kmod-nft-tproxy kmod-igc iwinfo"
+
+# 5. 无线与蓝牙扩展 (MT7925 专属增强)
+# 强制移除默认简版 wpad，替换为 openssl 完整版以支持更高级的加密(如 WPA3)
+PKG_WIFI_BT="-wpad-basic-mbedtls -wpad-basic-wolfssl wpad-openssl \
+kmod-mt7925e kmod-mt7925-firmware \
+kmod-btusb bluez-daemon kmod-input-uinput"
+
+# 6. 网络诊断与性能监控 (排障全家桶)
+PKG_MONITOR="nano htop ethtool tcpdump mtr conntrack iftop screen"
+
+# 7. LuCI 应用插件 (网页端实用功能)
+PKG_LUCI_APPS="luci-app-ttyd luci-i18n-ttyd-zh-cn \
+luci-app-ksmbd luci-i18n-ksmbd-zh-cn \
+luci-app-nlbwmon luci-i18n-nlbwmon-zh-cn"
+
+# 8. 合并所有模块并赋值给 PACKAGES
+PACKAGES="$PKG_CORE $PKG_DISK $PKG_DEPENDS $PKG_NETWORK $PKG_WIFI_BT $PKG_MONITOR $PKG_LUCI_APPS"
+
+echo ">>> 开始 Make Image 打包 <<<"
 make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files"
 
 echo ">>> 7. 提取固件 <<<"
