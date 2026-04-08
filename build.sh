@@ -162,9 +162,11 @@ kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-exfat"
 PKG_DEPENDS="coreutils-nohup coreutils-base64 coreutils-sort bash jq curl ca-bundle \
 libcap libcap-bin ruby ruby-yaml unzip"
 
-# 4. 网络底层驱动与防火墙扩展 (代理与有线网络支持)
+# 4. 网络底层驱动与防火墙扩展 (代理与有线网络全能支持)
 PKG_NETWORK="ip-full iptables-mod-tproxy iptables-mod-extra kmod-tun kmod-inet-diag \
-kmod-nft-tproxy kmod-igc iwinfo"
+kmod-nft-tproxy \
+kmod-igc kmod-igb kmod-r8169 \
+iwinfo"
 
 # 5. 无线与蓝牙扩展 (MT7925 专属增强)
 # 强制移除默认简版 wpad，替换为 openssl 完整版以支持更高级的加密(如 WPA3)
