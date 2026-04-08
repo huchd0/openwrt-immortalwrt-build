@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       luci_version:
-        description: "选择版本 (输入 auto 则自动获取最新版)"
-        required: false
+        description: "选择版本 (auto 仅拉取最新稳定版)"
+        required: true
         default: "auto"
+        type: choice
+        options:
+          - auto
+          - 25.12.0-rc1
+          - 24.10.5
       custom_router_ip:
         description: "路由器 LAN 口管理地址"
         required: true
@@ -24,35 +29,43 @@ jobs:
       TZ: Asia/Shanghai
       
     steps:
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v4.2.2
 
-      - name: Get Latest Version Tag
+      - name: 获取最新稳定版标签
         id: get_tag
         run: |
           if [ "${{ github.event.inputs.luci_version }}" = "auto" ]; then
-            echo "正在从 Docker Hub 获取最新版本标签..."
-            # 获取标签列表，筛选出符合 x86-64-openwrt-数字.数字 格式的标签，并取最高版本
+            echo "正在检索 Docker Hub 以查找最新稳定版本..."
+            # 逻辑说明：
+            # 1. 获取前 100 个标签
+            # 2. 匹配 x86-64-openwrt-数字.数字 格式
+            # 3. 使用 grep -v '-' 剔除所有包含横杠的标签（即剔除 rc, alpha, beta, snapshot）
             LATEST_TAG=$(curl -s "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags/?page_size=100" | \
               jq -r '.results[].name' | \
-              grep -E '^x86-64-openwrt-[0-9]+\.[0-9]+' | \
+              grep -E '^x86-64-openwrt-[0-9]+\.[0-9]+(\.[0-9]+)?$' | \
+              grep -v '-' | \
               sort -V | tail -n 1)
             
-            # 提取版本号部分 (例如从 x86-64-openwrt-25.12.0-rc1 提取 25.12.0-rc1)
+            if [ -z "$LATEST_TAG" ]; then
+              echo "❌ 未找到符合条件的稳定版标签，请检查网络或手动指定版本。"
+              exit 1
+            fi
+            
             FINAL_VERSION=$(echo $LATEST_TAG | sed 's/x86-64-openwrt-//')
           else
             FINAL_VERSION="${{ github.event.inputs.luci_version }}"
           fi
           
-          echo "确定使用的 Luci 版本为: $FINAL_VERSION"
+          echo "确定使用的版本为: $FINAL_VERSION"
           echo "LUCI_VERSION=$FINAL_VERSION" >> $GITHUB_ENV
 
-      - name: Set executable permissions
+      - name: 设置脚本执行权限
         run: chmod +x ${{ github.workspace }}/x86-64/build25.sh
 
-      - name: Build ImmortalWrt-x86-64
+      - name: 构建 ImmortalWrt 固件
         run: |
-          echo "🚀 开始构建固件，版本: ${{ env.LUCI_VERSION }}，分区大小: ${{ inputs.profile }}MB"
+          echo "🚀 开始构建，版本: ${{ env.LUCI_VERSION }}，分区: ${{ inputs.profile }}MB"
           docker run --rm -i \
             --user root \
             -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
@@ -64,17 +77,17 @@ jobs:
             -e CUSTOM_ROUTER_IP="${{ inputs.custom_router_ip }}" \
             immortalwrt/imagebuilder:x86-64-openwrt-${{ env.LUCI_VERSION }} /bin/bash /home/build/immortalwrt/build.sh
           
-      - name: Create release info
+      - name: 生成发布信息
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
           ## 📡 路由器编译完成
-          - 📦 **固件版本**: ImmortalWrt ${{ env.LUCI_VERSION }} (Latest Auto)
+          - 📦 **固件版本**: ImmortalWrt ${{ env.LUCI_VERSION }}
           - 🏠 **后台地址**: \`${{ inputs.custom_router_ip }}\`
           - 👤 **用户名**: \`root\`
           - 🔑 **密码**: \`无\`
           EOF
 
-      - name: Upload Release Assets
+      - name: 上传发布资产
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: Autobuild-${{ env.LUCI_VERSION }}
