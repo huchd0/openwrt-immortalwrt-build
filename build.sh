@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+# 接收 GitHub Actions 传来的环境变量
 ROOTFS_SIZE=${ROOTFS_SIZE:-1024}
 MANAGEMENT_IP=${MANAGEMENT_IP:-192.168.100.1}
 
@@ -12,6 +13,7 @@ echo ">>> 1. 自定义固件参数 <<<"
 echo "CONFIG_TARGET_KERNEL_PARTSIZE=64" >> .config
 echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE" >> .config
 
+# 极致优化：只生成 UEFI 的 squashfs 格式
 echo "CONFIG_TARGET_ROOTFS_EXT4FS=n" >> .config
 echo "CONFIG_TARGET_ROOTFS_TARGZ=n" >> .config
 echo "CONFIG_VMDK_IMAGES=n" >> .config
@@ -51,6 +53,7 @@ wget -qO files/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin "https:
 echo ">>> 4. 编写全自动开机初始化脚本 <<<"
 cat << EOF > files/etc/uci-defaults/99-custom-setup
 #!/bin/sh
+
 # --- A. 核心网络设置 ---
 uci set network.lan.ipaddr='$MANAGEMENT_IP'
 uci delete network.@device[0].ports 2>/dev/null
@@ -112,7 +115,7 @@ if [ -n "\$TARGET_UUID" ]; then
     mount /dev/sda3 /mnt/sda3 2>/dev/null || block mount
 fi
 
-# --- D. 基础性能监控配置 ---
+# --- D. 基础性能监控配置 (彻底修复图表丢失问题) ---
 if [ -x "/etc/init.d/collectd" ] && [ ! -f "/etc/collectd_inited" ]; then
     [ ! -f "/etc/config/luci_statistics" ] && touch /etc/config/luci_statistics
     uci set luci_statistics.collectd.enable='1'
@@ -124,11 +127,14 @@ if [ -x "/etc/init.d/collectd" ] && [ ! -f "/etc/collectd_inited" ]; then
 
     uci set luci_statistics.collectd_thermal=statistics
     uci set luci_statistics.collectd_thermal.enable='1'
+    
     uci set luci_statistics.collectd_sensors=statistics
     uci set luci_statistics.collectd_sensors.enable='1'
+    
     uci set luci_statistics.collectd_interface=statistics
     uci set luci_statistics.collectd_interface.enable='1'
     uci set luci_statistics.collectd_interface.ignoreselected='0'
+    
     uci set luci_statistics.collectd_cpu=statistics
     uci set luci_statistics.collectd_cpu.enable='1'
 
@@ -139,71 +145,67 @@ if [ -x "/etc/init.d/collectd" ] && [ ! -f "/etc/collectd_inited" ]; then
     uci add_list luci_statistics.collectd_ping.Hosts='8.8.8.8'
 
     uci commit luci_statistics
+    
+    # 核心修复：必须先启动 luci_statistics 编译配置，再启动 collectd
+    /etc/init.d/luci_statistics enable
+    /etc/init.d/luci_statistics restart
     /etc/init.d/collectd enable
+    /etc/init.d/collectd restart
     
     touch /etc/collectd_inited
 fi
 
-# --- E. 极速潜伏进程：暴力唤醒物理 Wi-Fi 信号 ---
-(
-    # 等待 10 秒，让系统内核把 MT7925 的固件完全吞进去
-    sleep 10
-    
-    for i in \$(seq 1 30); do
-        wifi config
-        if uci get wireless.@wifi-device[0] >/dev/null 2>&1; then
+# --- E. 绝对追踪守护进程：强制修改统一 SSID 并开启 Wi-Fi ---
+cat << 'WATCHER' > /etc/init.d/wifi-watcher
+#!/bin/sh /etc/rc.common
+START=99
+
+start() {
+    (
+        # 最多等待 60 秒，等待系统生成无线配置文件
+        for i in \$(seq 1 20); do
+            if uci show wireless | grep -q "=wifi-device"; then
+                break
+            fi
+            wifi config
+            sleep 3
+        done
+        
+        # 无论系统生成多少个网卡，全部强制开启
+        for radio in \$(uci show wireless | grep '=wifi-device' | cut -d'.' -f2 | cut -d'=' -f1); do
+            uci set wireless.\${radio}.disabled='0'
             
-            for radio in \$(uci show wireless | grep '=wifi-device' | cut -d'.' -f2 | cut -d'=' -f1); do
-                uci set wireless.\${radio}.disabled='0'
-                uci set wireless.\${radio}.country='AU'
-                uci set wireless.\${radio}.cell_density='0'
-                
-                band=\$(uci get wireless.\${radio}.band 2>/dev/null)
-                
-                if [ "\$band" = "5g" ]; then
-                    uci set wireless.\${radio}.channel='149'
-                    uci set wireless.\${radio}.htmode='EHT80'
-                    uci set wireless.\${radio}.txpower='23'
-                    
-                    if uci get wireless.default_\${radio} >/dev/null 2>&1; then
-                        uci set wireless.default_\${radio}.ssid='mywifi7_5G'
-                    fi
-                elif [ "\$band" = "2g" ]; then
-                    uci set wireless.\${radio}.channel='1'
-                    uci set wireless.\${radio}.htmode='HE40'
-                    uci set wireless.\${radio}.txpower='20'
-                    
-                    if uci get wireless.default_\${radio} >/dev/null 2>&1; then
-                        uci set wireless.default_\${radio}.ssid='mywifi7_2.4G'
-                    fi
-                fi
-                
-                # 写入加密参数
-                if uci get wireless.default_\${radio} >/dev/null 2>&1; then
-                    uci set wireless.default_\${radio}.encryption='sae-mixed'
-                    uci set wireless.default_\${radio}.key='Aa666666'
-                    uci set wireless.default_\${radio}.ieee80211w='1'
-                    uci set wireless.default_\${radio}.network='lan'
-                    uci set wireless.default_\${radio}.mode='ap'
+            # 绝对追踪接口，无视接口乱码名称，全部统一改名为 mywifi7
+            for iface in \$(uci show wireless | grep '=wifi-iface' | cut -d'.' -f2 | cut -d'=' -f1); do
+                # 如果这个接口属于当前网卡，就强行打上你的密码和统一的名字
+                if [ "\$(uci get wireless.\${iface}.device)" = "\${radio}" ]; then
+                    uci set wireless.\${iface}.ssid='mywifi7'
+                    uci set wireless.\${iface}.encryption='sae-mixed'
+                    uci set wireless.\${iface}.key='Aa666666'
+                    uci set wireless.\${iface}.ieee80211w='1'
+                    uci set wireless.\${iface}.network='lan'
+                    uci set wireless.\${iface}.mode='ap'
                 fi
             done
-            
-            uci commit wireless
-            
-            # 【终极暴击】不客气了，直接断开、重启网络、再强行拉起！
-            wifi down
-            sleep 2
-            /etc/init.d/network restart
-            sleep 3
-            wifi up
-            
-            # 顺手把统计图表服务也重启一次，确保抓到数据
-            /etc/init.d/collectd restart
-            break
-        fi
-        sleep 3
-    done
-) &
+        done
+        
+        uci commit wireless
+        wifi reload
+        
+        # Wi-Fi 开启后，再重启一次统计服务，确保抓到所有无线网卡的流量
+        sleep 5
+        /etc/init.d/luci_statistics restart
+        /etc/init.d/collectd restart
+        
+        # 任务完成，自我销毁
+        /etc/init.d/wifi-watcher disable
+        rm -f /etc/init.d/wifi-watcher
+    ) &
+}
+WATCHER
+
+chmod +x /etc/init.d/wifi-watcher
+/etc/init.d/wifi-watcher enable
 
 # --- F. 软件源与插件安装 ---
 if [ -d "/etc/apk/repositories.d" ]; then
