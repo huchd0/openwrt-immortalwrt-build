@@ -154,11 +154,33 @@ if uci get wireless.radio0 >/dev/null 2>&1; then
     uci commit wireless
 fi
 
-# --- F. 自动唤醒系统性能监控 (Statistics/collectd) ---
-# 开启服务并设置开机自启
+# --- F. 自動喚醒系統性能監控並啟用核心插件 ---
 if [ -x "/etc/init.d/collectd" ]; then
+    # 1. 確保基礎配置文件存在
+    [ ! -f "/etc/config/luci_statistics" ] && touch /etc/config/luci_statistics
+
+    # 2. 啟用 collectd 守護進程開關
+    uci set luci_statistics.collectd.enable='1'
+    
+    # 3. 強制啟用你指定的插件
+    # 啟用溫度監控 (Thermal)
+    uci set luci_statistics.collectd_thermal=statistics
+    uci set luci_statistics.collectd_thermal.enable='1'
+    
+    # 啟用感應器監控 (Sensors)
+    uci set luci_statistics.collectd_sensors=statistics
+    uci set luci_statistics.collectd_sensors.enable='1'
+    
+    # 啟用網絡接口監控 (Network Interface)
+    uci set luci_statistics.collectd_interface=statistics
+    uci set luci_statistics.collectd_interface.enable='1'
+    # 默認監控所有接口，不進行忽略
+    uci set luci_statistics.collectd_interface.ignoreselected='0'
+
+    # 4. 提交配置並重啟服務
+    uci commit luci_statistics
     /etc/init.d/collectd enable
-    /etc/init.d/collectd start
+    /etc/init.d/collectd restart
 fi
 
 # --- E. 软件源与插件安装 (纯离线秒装模式) ---
@@ -204,7 +226,7 @@ kmod-btusb bluez-daemon kmod-input-uinput"
 
 # 6. 网络诊断与性能监控 (排障全家桶 + 统计底层服务)
 PKG_MONITOR="nano htop ethtool tcpdump mtr conntrack iftop screen \
-collectd-mod-thermal collectd-mod-sensors"
+collectd-mod-thermal collectd-mod-sensors collectd-mod-cpu collectd-mod-ping"
 
 # 7. LuCI 应用插件 (网页端实用功能 + 性能报表)
 PKG_LUCI_APPS="luci-app-ttyd luci-i18n-ttyd-zh-cn \
