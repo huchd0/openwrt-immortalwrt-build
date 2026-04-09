@@ -154,33 +154,61 @@ if uci get wireless.radio0 >/dev/null 2>&1; then
     uci commit wireless
 fi
 
-# --- F. 自動喚醒系統性能監控並啟用核心插件 ---
-if [ -x "/etc/init.d/collectd" ]; then
-    # 1. 確保基礎配置文件存在
+# --- F. 自动唤醒系统性能监控并启用核心插件 ---
+# 加入标记文件判断，确保此脚本只会执行一次，保护 Flash 不被频繁擦写
+if [ -x "/etc/init.d/collectd" ] && [ ! -f "/etc/collectd_inited" ]; then
+    
+    # 1. 确保基础配置文件存在
     [ ! -f "/etc/config/luci_statistics" ] && touch /etc/config/luci_statistics
 
-    # 2. 啟用 collectd 守護進程開關
+    # 2. 启用 collectd 守护进程开关
     uci set luci_statistics.collectd.enable='1'
     
-    # 3. 強制啟用你指定的插件
-    # 啟用溫度監控 (Thermal)
+    # --- 变更数据存储目录 (如果 /mnt/sda3 存在) ---
+    if [ -d "/mnt/sda3/" ]; then
+        # 创建 rrd 数据专属存放文件夹，避免弄乱根目录
+        mkdir -p /mnt/sda3/collectd_rrd
+        # 设置 rrdtool 插件，指定存储路径
+        uci set luci_statistics.collectd_rrdtool=statistics
+        uci set luci_statistics.collectd_rrdtool.enable='1'
+        uci set luci_statistics.collectd_rrdtool.DataDir='/mnt/sda3/collectd_rrd'
+    fi
+
+    # 3. 强制启用你指定的插件
+    # 启用温度监控 (Thermal)
     uci set luci_statistics.collectd_thermal=statistics
     uci set luci_statistics.collectd_thermal.enable='1'
     
-    # 啟用感應器監控 (Sensors)
+    # 启用传感器监控 (Sensors)
     uci set luci_statistics.collectd_sensors=statistics
     uci set luci_statistics.collectd_sensors.enable='1'
     
-    # 啟用網絡接口監控 (Network Interface)
+    # 启用网络接口监控 (Network Interface)
     uci set luci_statistics.collectd_interface=statistics
     uci set luci_statistics.collectd_interface.enable='1'
-    # 默認監控所有接口，不進行忽略
+    # 默认监控所有接口，不进行忽略
     uci set luci_statistics.collectd_interface.ignoreselected='0'
 
-    # 4. 提交配置並重啟服務
+    # 启用 CPU 监控
+    uci set luci_statistics.collectd_cpu=statistics
+    uci set luci_statistics.collectd_cpu.enable='1'
+
+    # 启用 Ping 监控并设置目标 IP
+    uci set luci_statistics.collectd_ping=statistics
+    uci set luci_statistics.collectd_ping.enable='1'
+    # 清空之前的 IP 防止重复，并添加新的公共 DNS 作为检测目标
+    uci delete luci_statistics.collectd_ping.Hosts 2>/dev/null
+    uci add_list luci_statistics.collectd_ping.Hosts='114.114.114.114'
+    uci add_list luci_statistics.collectd_ping.Hosts='8.8.8.8'
+
+    # 4. 提交配置并重启服务
     uci commit luci_statistics
     /etc/init.d/collectd enable
     /etc/init.d/collectd restart
+    
+    # 5. 创建防重启执行标记 (非常重要)
+    touch /etc/collectd_inited
+    echo "Collectd init and config done."
 fi
 
 # --- E. 软件源与插件安装 (纯离线秒装模式) ---
