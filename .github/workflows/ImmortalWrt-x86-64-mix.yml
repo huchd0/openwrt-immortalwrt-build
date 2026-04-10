@@ -4,71 +4,77 @@ on:
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: '选择构建版本 (Docker Tag)'
-        required: true
-        default: '25.12.0-rc1'
+        description: "选择 ImmortalWrt 版本 (Docker Tag)"
+        required: false
+        default: "25.12.0-rc1"
         type: choice
         options:
-          - '25.12.0-rc1'
-          - '24.10.5'
-          - '23.05.4'
+          - 25.12.0-rc1
+          - 24.10.5
+          - 23.05.4
+      custom_router_ip:
+        description: "路由器管理地址 (如 192.168.100.1)"
+        required: true
+        default: "192.168.100.1"
       profile:
         description: 'RootFS 分区大小 (MB)'
         required: true
         default: '1024'
-        type: string
-      custom_ip:
-        description: '路由器管理地址'
-        required: true
-        default: '192.168.100.1'
-        type: string
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    
+    runs-on: ubuntu-22.04
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      
     steps:
-      - name: Checkout 代码
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
 
-      - name: 🐳 准备极简输出目录
+      - name: 🛠️ 准备映射目录与权限
         run: |
-          # 直接在当前工作区建一个简单粗暴的输出文件夹
-          mkdir -p ${{ github.workspace }}/output-firmware
+          # 提前创建好映射目录，防止 Docker 以 root 身份创建导致权限锁死
+          mkdir -p ${{ github.workspace }}/bin
+          mkdir -p ${{ github.workspace }}/files
           
-          # 🔥 关键神操作：赋予最高读写权限，允许 Docker 内部的非 root 用户写入
-          chmod 777 ${{ github.workspace }}/output-firmware
-          
-          # 修复脚本换行符并赋予权限
-          sed -i 's/\r$//' x86-64/build_ImmortalWrt_mix.sh
-          chmod +x x86-64/build_ImmortalWrt_mix.sh
+          # 修复脚本格式并赋予执行权限 (假设你的脚本在 x86-64 目录下)
+          sed -i 's/\r$//' ${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh
+          chmod +x ${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh
 
-      - name: 🚀 运行 Docker ImageBuilder 容器
+      - name: 🚀 运行 Docker 编译 (通过 Volume 实时传出固件)
         run: |
-          DOCKER_IMAGE="immortalwrt/imagebuilder:x86-64-openwrt-${{ inputs.openwrt_version }}"
-          echo ">>> 正在拉取官方构建镜像: $DOCKER_IMAGE"
-          docker pull "$DOCKER_IMAGE"
-          
-          echo ">>> 启动容器并在无尘环境中执行编译..."
-          docker run --rm \
-            -v ${{ github.workspace }}:/workspace \
-            -e ROOTFS_SIZE=${{ inputs.profile }} \
-            -e MANAGEMENT_IP=${{ inputs.custom_ip }} \
-            "$DOCKER_IMAGE" \
-            /bin/bash -c "cp /workspace/x86-64/build_ImmortalWrt_mix.sh . && \
-            ./build_ImmortalWrt_mix.sh && \
-            echo '>>> 🎯 编译成功！当前容器生成的文件如下：' && \
-            ls -lh bin/targets/x86/64/ && \
-            echo '>>> 正在将所有固件文件转移到宿主机 output-firmware 目录...' && \
-            cp bin/targets/x86/64/* /workspace/output-firmware/ -r"
+          # 使用 --user root 确保容器内拥有足够权限修改配置，
+          # 官方 ImageBuilder 默认工作目录通常是 /builder。
+          docker run --rm -i \
+            --user root \
+            -v "${{ github.workspace }}/bin:/builder/bin" \
+            -v "${{ github.workspace }}/files:/builder/files" \
+            -v "${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh:/builder/build.sh" \
+            -e ROOTFS_SIZE="${{ inputs.profile }}" \
+            -e MANAGEMENT_IP="${{ inputs.custom_router_ip }}" \
+            immortalwrt/imagebuilder:x86-64-openwrt-${{ inputs.openwrt_version }} \
+            /bin/bash /builder/build.sh
 
-      - name: 📦 Upload ImmortalWrt as release assets
+      - name: 📝 生成后台说明文档
+        run: |
+          cat > ${{ github.workspace }}/router-info.md <<EOF
+          ## 🌟 ImmortalWrt ${{ inputs.openwrt_version }} 定制版
+          
+          - 🏠 **管理地址**: http://${{ inputs.custom_router_ip }}
+          - 👤 **用户名**: root
+          - 🔑 **密码**: (空)
+          - ⚙️ **核心集成**: OpenClash (Meta核心), Argon 主题
+          - 💾 **特性**: 开机自动抓取并挂载剩余空间 (sda3)
+          EOF
+
+      - name: 📦 Upload Release
         uses: softprops/action-gh-release@v2.4.1
         with:
-          tag_name: ${{ inputs.openwrt_version }}-${{ github.run_id }}
-          name: ImmortalWrt ${{ inputs.openwrt_version }} [${{ inputs.custom_ip }}]
-          # 这里采用“全量通配”，只要是放到输出文件夹里的文件全抓取
+          tag_name: ${{ inputs.openwrt_version }}-Mix-${{ github.run_id }}
+          name: ImmortalWrt ${{ inputs.openwrt_version }} [IP: ${{ inputs.custom_router_ip }}]
+          body_path: ${{ github.workspace }}/router-info.md
           files: |
-            output-firmware/*
+            ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
+            ${{ github.workspace }}/bin/targets/x86/64/sha256sums
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
