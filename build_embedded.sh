@@ -13,26 +13,24 @@ esac
 
 echo ">>> 架构: $TARGET_ARCH | 选用内核: $CORE <<<"
 
-# 2. 准备目录 (修复 Device or resource busy)
-# 不要 rm -rf files，而是清理其内部文件并重新创建子目录
-find files -mindepth 1 -delete 2>/dev/null || true
-mkdir -p files/root files/etc/uci-defaults files/etc/openclash/core
+# 2. 准备目录
+rm -rf files && mkdir -p files/root files/etc/uci-defaults files/etc/openclash/core
 
-# 3. 下载 OpenClash APK
+# 3. 下载 OpenClash APK (使用不依赖 jq 的方式)
 echo ">>> 正在获取 OpenClash APK..."
+# 通过 grep 和 cut 强行提取第一个 .apk 的下载地址
 OC_URL=$(curl -s https://api.github.com/repos/vernesong/OpenClash/releases | grep "browser_download_url" | grep ".apk" | head -n 1 | cut -d '"' -f 4)
 
 if [ -z "$OC_URL" ]; then
-    echo "❌ 错误: 无法获取 OpenClash 下载链接"
+    echo "❌ 无法获取 OpenClash 下载链接，请检查网络或 GitHub API 限制"
     exit 1
 fi
 
-# 确保目标目录存在再下载
 wget -qO files/root/luci-app-openclash.apk "$OC_URL"
 
-# 4. 针对小容量设备的处理 (16MB Flash 必须跳过内核)
+# 4. 针对小容量设备的处理逻辑
 if [[ "$TARGET_ARCH" == *"ramips"* ]]; then
-    echo ">>> 检测到 16MB 级别设备，跳过内核集成以确保构建成功 <<<"
+    echo ">>> 检测到嵌入式小内存架构，跳过内核预装以防止固件超大。 <<<"
 else
     echo ">>> 正在下载 OpenClash 内核..."
     wget -qO- "https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-${CORE}.tar.gz" | tar -zxf - -C files/etc/openclash/core/
@@ -52,31 +50,24 @@ sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' /etc/apk/reposit
 
 # 安装插件
 apk add -q --allow-untrusted /root/*.apk 2>/dev/null || true
-rm -f /root/*.apk
-rm -f /etc/uci-defaults/99-custom-setup
+rm -f /root/*.apk /etc/uci-defaults/99-custom-setup
 exit 0
 EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
 
-# 6. 定义软件包 (精简掉占用大的无用包)
-# 1. 移除不必要的目录清理报错，改用更温和的方式
-[ -d files ] && find files -mindepth 1 -delete
-
-# ... (中间下载 APK 的代码保持不变) ...
-
-# 2. 极致精简软件包列表
-# 关键点：
-# - 移除所有 IPv6 相关包 (节省约 1MB+)
-# - 移除所有 USB 支持 (节省约 1.5MB+)
-# - 移除所有统计和不常用工具
+# 6. 定义软件包 (针对 16MB Flash 极致精简)
+# 移除了所有不需要的 USB、拨号、统计插件
 PKGS="-dnsmasq dnsmasq-full \
 -ppp -ppp-mod-pppoe \
--ip6tables -odhcp6c -kmod-ipv6 -kmod-ipt-nat6 \
 -kmod-usb-core -kmod-usb3 -kmod-usb-ledtrig-usbport \
 -kmod-usb-storage -kmod-usb-storage-uas \
 -kmod-fs-autofs4 -kmod-fs-msdos -kmod-fs-vfat \
--kmod-nft-offload -luci-app-statistics -luci-app-ttyd \
-luci-app-openclash"
+-kmod-nft-offload \
+-luci-app-statistics \
+luci-app-openclash \
+luci-app-ttyd \
+luci-i18n-ttyd-zh-cn"
 
-# 3. 执行构建
-make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
+# 7. 执行构建
+# make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
+make info 用这个更改
