@@ -51,5 +51,9 @@ luci-app-statistics luci-i18n-statistics-zh-cn \
 coreutils-nohup block-mount kmod-fs-ext4"
 
 # 6. 执行构建
-#make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
+# make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
+
+# 禁掉上面的执行构建语句，执行下面语句make info，第四步Run Builder的时候，
+#中间有一行Available Profiles:下面，有很多路由器信息块，
+#第一行冒號左側的字符串（例如 xiaomi_mi-router-4g）就是界面中要填入 device_profile 輸入框的值
 make info
