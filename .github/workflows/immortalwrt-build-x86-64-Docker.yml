@@ -24,7 +24,7 @@ on:
         type: boolean
         default: false
       include_docker:
-        description: "是否编译 Docker 引擎 (带自动网络互通)"
+        description: "Docker"
         required: true
         default: 'yes'
         type: choice
