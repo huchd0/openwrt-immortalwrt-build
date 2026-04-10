@@ -59,16 +59,24 @@ EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
 
 # 6. 定义软件包 (精简掉占用大的无用包)
+# 1. 移除不必要的目录清理报错，改用更温和的方式
+[ -d files ] && find files -mindepth 1 -delete
+
+# ... (中间下载 APK 的代码保持不变) ...
+
+# 2. 极致精简软件包列表
+# 关键点：
+# - 移除所有 IPv6 相关包 (节省约 1MB+)
+# - 移除所有 USB 支持 (节省约 1.5MB+)
+# - 移除所有统计和不常用工具
 PKGS="-dnsmasq dnsmasq-full \
 -ppp -ppp-mod-pppoe \
+-ip6tables -odhcp6c -kmod-ipv6 -kmod-ipt-nat6 \
 -kmod-usb-core -kmod-usb3 -kmod-usb-ledtrig-usbport \
 -kmod-usb-storage -kmod-usb-storage-uas \
 -kmod-fs-autofs4 -kmod-fs-msdos -kmod-fs-vfat \
--kmod-nft-offload \
--luci-app-statistics \
-luci-app-openclash \
-luci-app-ttyd \
-luci-i18n-ttyd-zh-cn"
+-kmod-nft-offload -luci-app-statistics -luci-app-ttyd \
+luci-app-openclash"
 
-# 7. 执行构建
+# 3. 执行构建
 make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
