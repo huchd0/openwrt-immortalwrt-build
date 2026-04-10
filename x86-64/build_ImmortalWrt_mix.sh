@@ -6,18 +6,24 @@ ROOTFS_SIZE=${ROOTFS_SIZE:-1024}
 MANAGEMENT_IP=${MANAGEMENT_IP:-192.168.100.1}
 [ [[ ! "$MANAGEMENT_IP" == *"/"* ]] ] && MANAGEMENT_IP="${MANAGEMENT_IP}/24"
 
-echo ">>> 1. 自定义固件参数 (强制剔除虚拟机固件) <<<"
+echo ">>> 1. 自定义固件参数 (强制生成 SquashFS 和 EFI) <<<"
 # 重新定义分区大小
 sed -i '/CONFIG_TARGET_KERNEL_PARTSIZE/d' .config
 echo "CONFIG_TARGET_KERNEL_PARTSIZE=64" >> .config
 sed -i '/CONFIG_TARGET_ROOTFS_PARTSIZE/d' .config
 echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE" >> .config
 
-# 暴力清理底层配置，使用标准 Kconfig 语法彻底禁用不需要的格式
+# 暴力清理底层配置，剔除虚拟机格式
 for var in CONFIG_TARGET_ROOTFS_EXT4FS CONFIG_TARGET_ROOTFS_TARGZ CONFIG_QCOW2_IMAGES CONFIG_VDI_IMAGES CONFIG_VMDK_IMAGES CONFIG_VHDX_IMAGES CONFIG_ISO_IMAGES; do
     sed -i "/${var}/d" .config
     echo "# ${var} is not set" >> .config
 done
+
+# 强力保底：不论官方默认值怎么变，强制开启 SquashFS 和 EFI 引导
+sed -i '/CONFIG_TARGET_ROOTFS_SQUASHFS/d' .config
+echo "CONFIG_TARGET_ROOTFS_SQUASHFS=y" >> .config
+sed -i '/CONFIG_EFI_IMAGES/d' .config
+echo "CONFIG_EFI_IMAGES=y" >> .config
 
 echo ">>> 2. 准备初始化文件夹 <<<"
 mkdir -p files/root files/etc/uci-defaults
