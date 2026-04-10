@@ -1,0 +1,71 @@
+name: ImmortalWrt-Embedded-Custom
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: '设备架构 (如: ramips-mt7621, rockchip-armv8, bcm27xx-bcm2711)'
+        required: true
+        default: 'ramips-mt7621'
+      device_profile:
+        description: '设备 Profile (如: generic, xiaomi_mi-router-4g, tplink_tl-wdr7660)'
+        required: true
+        default: 'generic'
+      openwrt_version:
+        description: '选择版本 (Auto 为最新)'
+        required: false
+        default: 'Auto'
+        type: choice
+        options:
+          - 'Auto'
+          - '24.10.5'
+          - '25.12.0-rc1'
+      custom_router_ip:
+        description: '管理地址'
+        required: true
+        default: '192.168.10.1'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔍 解析版本
+        id: vars
+        run: |
+          ARCH="${{ inputs.arch }}"
+          if [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
+            LATEST=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100&name=$ARCH-openwrt-" | jq -r '.results[].name' | grep -v "SNAPSHOT" | grep -vE "^$ARCH-openwrt-[0-9]+\.[0-9]+$" | head -n 1 | sed "s/$ARCH-openwrt-//")
+            echo "VERSION=$LATEST" >> $GITHUB_ENV
+          else
+            echo "VERSION=${{ inputs.openwrt_version }}" >> $GITHUB_ENV
+          fi
+
+      - name: Run Builder
+        run: |
+          mkdir -p bin files
+          sed -i 's/\r$//' ./build_embedded.sh
+          
+          docker run --rm -i \
+            --user root \
+            -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
+            -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
+            -v "${{ github.workspace }}/build_embedded.sh:/home/build/immortalwrt/build.sh" \
+            -e MANAGEMENT_IP="${{ inputs.custom_router_ip }}" \
+            -e TARGET_ARCH="${{ inputs.arch }}" \
+            -e DEVICE_PROFILE="${{ inputs.device_profile }}" \
+            immortalwrt/imagebuilder:${{ inputs.arch }}-openwrt-${{ env.VERSION }} \
+            /bin/bash /home/build/immortalwrt/build.sh
+
+      - name: Upload
+        uses: softprops/action-gh-release@v2.4.1
+        with:
+          tag_name: "${{ inputs.device_profile }}-${{ env.VERSION }}-${{ github.run_id }}"
+          files: |
+            bin/targets/*/*/*.bin
+            bin/targets/*/*/*.img.gz
+            bin/targets/*/*/sha256sums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
