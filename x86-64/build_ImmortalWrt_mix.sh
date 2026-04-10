@@ -6,11 +6,18 @@ ROOTFS_SIZE=${ROOTFS_SIZE:-1024}
 MANAGEMENT_IP=${MANAGEMENT_IP:-192.168.100.1}
 [ [[ ! "$MANAGEMENT_IP" == *"/"* ]] ] && MANAGEMENT_IP="${MANAGEMENT_IP}/24"
 
-echo ">>> 1. 自定义固件参数 <<<"
+echo ">>> 1. 自定义固件参数 (强制剔除虚拟机固件) <<<"
+# 重新定义分区大小
+sed -i '/CONFIG_TARGET_KERNEL_PARTSIZE/d' .config
 echo "CONFIG_TARGET_KERNEL_PARTSIZE=64" >> .config
+sed -i '/CONFIG_TARGET_ROOTFS_PARTSIZE/d' .config
 echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE" >> .config
-# 仅生成 UEFI Squashfs，提升编译速度
-for fmt in EXT4FS TARGZ VMDK VDI VHDX QCOW2 ISO GRUB; do echo "CONFIG_TARGET_ROOTFS_${fmt}=n" >> .config 2>/dev/null || echo "CONFIG_${fmt}_IMAGES=n" >> .config; done
+
+# 暴力清理底层配置，使用标准 Kconfig 语法彻底禁用不需要的格式
+for var in CONFIG_TARGET_ROOTFS_EXT4FS CONFIG_TARGET_ROOTFS_TARGZ CONFIG_QCOW2_IMAGES CONFIG_VDI_IMAGES CONFIG_VMDK_IMAGES CONFIG_VHDX_IMAGES CONFIG_ISO_IMAGES; do
+    sed -i "/${var}/d" .config
+    echo "# ${var} is not set" >> .config
+done
 
 echo ">>> 2. 准备初始化文件夹 <<<"
 mkdir -p files/root files/etc/uci-defaults
@@ -85,6 +92,10 @@ block-mount blkid lsblk parted fdisk e2fsprogs coreutils-nohup bash curl ca-bund
 ip-full iptables-mod-tproxy iptables-mod-extra ruby ruby-yaml kmod-tun unzip iwinfo"
 
 echo ">>> 6. 开始打包 <<<"
-make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files"
+# 加上 EXTRA_IMAGE_NAME 防止冲突
+make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="mix"
 
+echo ">>> 7. 提取固件 <<<"
+mkdir -p output-firmware
+cp bin/targets/x86/64/*combined-efi.img.gz output-firmware/ 2>/dev/null || true
 echo ">>> 容器内构建流程执行完毕 <<<"
