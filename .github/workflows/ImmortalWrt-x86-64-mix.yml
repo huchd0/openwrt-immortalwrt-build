@@ -36,6 +36,9 @@ jobs:
           # 直接在当前工作区建一个简单粗暴的输出文件夹
           mkdir -p ${{ github.workspace }}/output-firmware
           
+          # 🔥 关键神操作：赋予最高读写权限，允许 Docker 内部的非 root 用户写入
+          chmod 777 ${{ github.workspace }}/output-firmware
+          
           # 修复脚本换行符并赋予权限
           sed -i 's/\r$//' x86-64/build_ImmortalWrt_mix.sh
           chmod +x x86-64/build_ImmortalWrt_mix.sh
