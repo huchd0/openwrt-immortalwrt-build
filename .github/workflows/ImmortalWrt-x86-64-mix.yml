@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: '选择版本 (Auto 自动抓取稳定版)'
+        description: '选择版本 (Auto 自动抓取最新可用版)'
         required: true
         default: 'Auto'
         type: choice
         options:
           - 'Auto'
-          - '24.10.0'
+          - '25.12.0-rc1'
+          - '24.10.5'
           - '23.05.4'
-          - '23.05.3'
       profile:
         description: 'RootFS 分区大小 (MB)'
         required: true
@@ -27,58 +27,45 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-      
+    
     steps:
       - name: Checkout 代码
         uses: actions/checkout@v4
 
-      - name: 🔍 智能探测可用下载地址
-        id: probe_url
+      - name: 🔍 探测有效 ImageBuilder 路径
+        id: probe
         run: |
-          # 定义备用版本（如果 Auto 失败，回退到此）
-          FALLBACK_VER="23.05.4"
-          
-          if [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
-            VERSION=$(curl -s "https://api.github.com/repos/immortalwrt/immortalwrt/releases" | jq -r '.[0].tag_name' | sed 's/v//')
-          else
-            VERSION="${{ inputs.openwrt_version }}"
-          fi
+          # 设定回退路径：如果 Auto 或选定版本失效，尝试这些已知版本
+          CHECK_LIST="${{ inputs.openwrt_version }} 24.10.0 23.05.4 23.05.0"
+          [ "${{ inputs.openwrt_version }}" == "Auto" ] && CHECK_LIST="$(curl -s https://api.github.com/repos/immortalwrt/immortalwrt/releases | jq -r '.[0].tag_name' | sed 's/v//') $CHECK_LIST"
 
-          echo "正在检测版本: $VERSION"
+          SELECTED_URL=""
+          FINAL_VER=""
 
-          # 定义检测函数
-          check_url() {
-            local ver=$1
-            local url="https://downloads.immortalwrt.org/releases/${ver}/targets/x86/64/immortalwrt-imagebuilder-${ver}-x86-64.Linux-x86_64.tar.xz"
-            if wget --spider -q "$url"; then
-              echo "$url"
-            else
-              echo ""
+          for VER in $CHECK_LIST; do
+            [ "$VER" == "Auto" ] && continue
+            URL="https://downloads.immortalwrt.org/releases/${VER}/targets/x86/64/immortalwrt-imagebuilder-${VER}-x86-64.Linux-x86_64.tar.xz"
+            echo "尝试探测: $URL"
+            if wget --spider -q "$URL"; then
+              SELECTED_URL="$URL"
+              FINAL_VER="$VER"
+              break
             fi
-          }
+          done
 
-          # 尝试下载
-          IB_URL=$(check_url "$VERSION")
-
-          if [ -z "$IB_URL" ]; then
-            echo "⚠️ 警告: $VERSION 暂时没有 ImageBuilder 文件，正在尝试回退到稳定版 $FALLBACK_VER"
-            IB_URL=$(check_url "$FALLBACK_VER")
-            VERSION="$FALLBACK_VER"
-          fi
-
-          if [ -n "$IB_URL" ]; then
-            echo "✅ 最终确定下载地址: $IB_URL"
-            echo "IB_URL=$IB_URL" >> $GITHUB_ENV
-            echo "OWRT_VERSION=$VERSION" >> $GITHUB_ENV
-          else
-            echo "❌ 严重错误: 连回退版本也无法下载！请检查网络或官方站点。"
+          if [ -z "$SELECTED_URL" ]; then
+            echo "❌ 错误: 官方下载站暂未发布所选版本的 ImageBuilder，请检查版本号。"
             exit 1
           fi
+
+          echo "✅ 确定使用版本: $FINAL_VER"
+          echo "IB_URL=$SELECTED_URL" >> $GITHUB_ENV
+          echo "OWRT_VERSION=$FINAL_VER" >> $GITHUB_ENV
 
       - name: 安装依赖
         run: sudo apt-get update && sudo apt-get install -y build-essential gawk git wget unzip python3 jq
 
-      - name: 下载并解压
+      - name: 下载并解压 ImageBuilder
         run: |
           wget -q "${{ env.IB_URL }}"
           tar -xf *.tar.xz
@@ -89,11 +76,12 @@ jobs:
           ROOTFS_SIZE: ${{ inputs.profile }}
           MANAGEMENT_IP: ${{ inputs.custom_ip }}
         run: |
-          sed -i 's/\r$//' x86-64/build251.sh
-          chmod +x x86-64/build251.sh
-          cp x86-64/build251.sh imagebuilder/
+          # 适配更名后的脚本
+          sed -i 's/\r$//' x86-64/build_ImmortalWrt_mix.sh
+          chmod +x x86-64/build_ImmortalWrt_mix.sh
+          cp x86-64/build_ImmortalWrt_mix.sh imagebuilder/
           cd imagebuilder
-          ./build251.sh
+          ./build_ImmortalWrt_mix.sh
 
       - name: 发布到 Releases
         uses: softprops/action-gh-release@v2
