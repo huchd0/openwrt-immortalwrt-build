@@ -113,7 +113,8 @@ jobs:
             STORE_STATUS="✅ 已集成"
           fi
 
-          # 智能判断网络状态文案 (加入降级提示)
+          # 智能判断网络状态文案 (加入降级提示与默认状态)
+          WAN_STATUS="🔌 DHCP / 静态 IP"
           PPPOE_NOTE="*(未启用自动拨号功能)*"
           if [[ -n "${{ github.event.inputs.pppoe_account }}" && -n "${{ github.event.inputs.pppoe_password }}" ]]; then
             WAN_STATUS="📝 PPPoE (**开机全自动注入账号密码并拨号**)"
@@ -124,7 +125,7 @@ jobs:
           fi
 
           cat > ${{ github.workspace }}/router-info.md <<EOF
-          ## 🚀 ImmortalWrt x86-64 高级定制固件
+          ## 🚀 ImmortalWrt 高级定制固件
           
           > 本固件由 GitHub Actions 驱动 \`ImageBuilder\` 全自动构建，专为 x86-64 物理机与虚拟机优化。
           
@@ -132,6 +133,7 @@ jobs:
           - 🏠 **管理地址**: \`${{ github.event.inputs.custom_router_ip }}\`
           - 👤 **默认账户**: \`root\`
           - 🔑 **默认密码**: *(无，请在初始设置时修改)*
+          - 🌐 **上网方式**: $WAN_STATUS
           
           ## ⚙️ 核心固件特性
           - 💾 **RootFS 分区大小**: \`${{ github.event.inputs.rootfs_size }} MB\`
@@ -150,7 +152,7 @@ jobs:
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: Build-${{ env.DATE }}
-          name: ImmortalWrt x86-64 (${{ github.event.inputs.custom_router_ip }})
+          name: ImmortalWrt ${{ github.event.inputs.luci_version }} (${{ github.event.inputs.custom_router_ip }})
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
