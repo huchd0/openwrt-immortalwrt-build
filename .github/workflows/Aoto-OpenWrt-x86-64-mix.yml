@@ -103,6 +103,7 @@ jobs:
           body: |
             **🤖 OpenWrt 自动mix终极定制化固件**
             - **版本**: `${{ env.OWRT_VERSION }}`
+            - **固件大小**: `${{ env.ROOTFS_SIZE }}`            
             - **构建时间**: `${{ env.release_tag }}`
             - **管理 IP**: `${{ env.MANAGEMENT_IP }}`
             - **硬盘挂载**: 智能抓取 sda3 或 nvme0n1p3 动态绑定 (为 Docker 预留)
