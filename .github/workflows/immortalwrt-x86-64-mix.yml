@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: '选择 ImmortalWrt 版本 (Auto 为自动抓取最新版)'
+        description: '选择 ImmortalWrt 版本 (Auto 抓取最新稳定版/RC版)'
         required: false
         default: 'Auto'
         type: choice
         options:
           - 'Auto'
-          - '25.12.0-rc1'
-          - '24.10.0'
+          - '24.10.5'
+          - '24.10.0-rc1'
           - '23.05.4'
       custom_router_ip:
         description: '路由器管理地址'
@@ -38,17 +38,22 @@ jobs:
         id: resolve_version
         run: |
           if [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
-            echo ">>> 正在自动抓取 ImmortalWrt 最新版本号..."
-            # 通过 API 获取最新的 tag (包含预览版)
-            LATEST_TAG=$(curl -s https://api.github.com/repos/immortalwrt/immortalwrt/releases | jq -r '.[0].tag_name' | sed 's/v//')
+            echo ">>> 正在自动抓取 Docker Hub 上最新的 ImmortalWrt 镜像标签..."
+            
+            # 核心拦截逻辑：抓取前 100 个历史标签，剔除 SNAPSHOT 以及带 25.12 的开发版
+            # 取过滤后排在第一位的版本（必然是最新出炉的 24.x 稳定版或 RC 版）
+            LATEST_TAG=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100" | jq -r '.results[].name' | grep "x86-64-openwrt-" | grep -v -E "SNAPSHOT|25\.12" | head -n 1 | sed 's/x86-64-openwrt-//')
+            
+            # 去除保底机制：如果没抓到，直接中断报错，宁死不屈
             if [ -z "$LATEST_TAG" ] || [ "$LATEST_TAG" == "null" ]; then
-              echo "⚠️ 获取失败，自动回退到保底版本 24.10.0"
-              LATEST_TAG="24.10.0"
+              echo "❌ 致命错误：未能从 Docker Hub 获取到有效的版本号！工作流中止。"
+              exit 1
             fi
-            echo ">>> 成功解析到最新版本: $LATEST_TAG"
+            
+            echo ">>> 🎉 成功锁定最终构建版本: $LATEST_TAG"
             echo "FINAL_VERSION=$LATEST_TAG" >> $GITHUB_ENV
           else
-            echo ">>> 用户指定了版本: ${{ inputs.openwrt_version }}"
+            echo ">>> 用户手动指定了版本: ${{ inputs.openwrt_version }}"
             echo "FINAL_VERSION=${{ inputs.openwrt_version }}" >> $GITHUB_ENV
           fi
 
