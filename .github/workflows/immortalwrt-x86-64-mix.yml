@@ -67,11 +67,9 @@ jobs:
       - name: Upload Release
         uses: softprops/action-gh-release@v2.4.1
         with:
-          tag_name: ${{ inputs.openwrt_version }}-Mix-${{ github.run_id }}
-          name: ImmortalWrt ${{ inputs.openwrt_version }} [IP: ${{ inputs.custom_router_ip }}]
-          body_path: ${{ github.workspace }}/router-info.md
+          tag_name: "${{ inputs.openwrt_version }}-Mix-${{ github.run_id }}"
+          name: "ImmortalWrt ${{ inputs.openwrt_version }} [IP: ${{ inputs.custom_router_ip }}]"
+          body_path: "${{ github.workspace }}/router-info.md"
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
-            ${{ github.workspace }}/bin/targets/x86/64/sha256sums
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ${{ github.workspace }}/bin/targets/x86/
