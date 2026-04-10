@@ -78,7 +78,7 @@ jobs:
       - name: Create Info Doc
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
-          ## 🌟 ImmortalWrt ${{ env.FINAL_VERSION }} 定制版：${{ inputs.profile }} MB
+          ## 🌟 ImmortalWrt ${{ env.FINAL_VERSION }} mix定制版：${{ inputs.profile }} MB
           
           - 🏠 **管理地址**: http://${{ inputs.custom_router_ip }}
           - 👤 **用户名**: root
@@ -94,7 +94,7 @@ jobs:
           tag_name: "${{ env.FINAL_VERSION }}-Mix-${{ github.run_id }}"
           # 如果你也想在 Release 标题上直接带上分区大小，可以将下面这行改为：
           # name: "ImmortalWrt ${{ env.FINAL_VERSION }} [IP: ${{ inputs.custom_router_ip }} | ${{ inputs.profile }}MB]"
-          name: "ImmortalWrt ${{ env.FINAL_VERSION }} [IP: ${{ inputs.custom_router_ip }}]"
+          name: "ImmortalWrt  [IP: ${{ inputs.custom_router_ip }}]"
           body_path: "${{ github.workspace }}/router-info.md"
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
