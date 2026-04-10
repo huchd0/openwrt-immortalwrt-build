@@ -114,7 +114,6 @@ jobs:
           fi
 
           # 智能判断网络状态文案 (加入降级提示)
-          WAN_STATUS="🔌 DHCP / 静态 IP"
           PPPOE_NOTE="*(未启用自动拨号功能)*"
           if [[ -n "${{ github.event.inputs.pppoe_account }}" && -n "${{ github.event.inputs.pppoe_password }}" ]]; then
             WAN_STATUS="📝 PPPoE (**开机全自动注入账号密码并拨号**)"
@@ -151,7 +150,7 @@ jobs:
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: Build-${{ env.DATE }}
-          name: ImmortalWrt x86-64 (构建于 ${{ env.DATE }})
+          name: ImmortalWrt x86-64 (${{ github.event.inputs.custom_router_ip }})
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
