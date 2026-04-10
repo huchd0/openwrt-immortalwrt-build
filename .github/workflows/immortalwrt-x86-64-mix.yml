@@ -1,10 +1,10 @@
-name: immortalwrt-x86-64-mix
+name: ImmortalWrt-x86-64-mix
 
 on:
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: '选择 ImmortalWrt 版本
+        description: '选择 ImmortalWrt 版本 (Docker Tag)'
         required: false
         default: '25.12.0-rc1'
         type: choice
@@ -13,7 +13,7 @@ on:
           - '24.10.5'
           - '23.05.4'
       custom_router_ip:
-        description: '路由器管理地址 (如 192.168.100.1)'
+        description: '路由器管理地址'
         required: true
         default: '192.168.100.1'
         type: string
@@ -33,26 +33,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
 
-      - name: 🛠️ 准备映射目录与权限
+      - name: Prepare Dirs and Scripts
         run: |
           mkdir -p ${{ github.workspace }}/bin
           mkdir -p ${{ github.workspace }}/files
           sed -i 's/\r$//' ${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh
           chmod +x ${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh
 
-      - name: 🚀 运行 Docker 编译
+      - name: Run Docker ImageBuilder
         run: |
           docker run --rm -i \
             --user root \
-            -v "${{ github.workspace }}/bin:/builder/bin" \
-            -v "${{ github.workspace }}/files:/builder/files" \
-            -v "${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh:/builder/build.sh" \
+            -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
+            -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
+            -v "${{ github.workspace }}/x86-64/build_ImmortalWrt_mix.sh:/home/build/immortalwrt/build.sh" \
             -e ROOTFS_SIZE="${{ inputs.profile }}" \
             -e MANAGEMENT_IP="${{ inputs.custom_router_ip }}" \
             immortalwrt/imagebuilder:x86-64-openwrt-${{ inputs.openwrt_version }} \
-            /bin/bash /builder/build.sh
+            /bin/bash /home/build/immortalwrt/build.sh
 
-      - name: 📝 生成后台说明文档
+      - name: Create Info Doc
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
           ## 🌟 ImmortalWrt ${{ inputs.openwrt_version }} 定制版
@@ -64,7 +64,7 @@ jobs:
           - 💾 **特性**: 开机自动抓取并挂载剩余空间 (sda3)
           EOF
 
-      - name: 📦 Upload Release
+      - name: Upload Release
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: ${{ inputs.openwrt_version }}-Mix-${{ github.run_id }}
