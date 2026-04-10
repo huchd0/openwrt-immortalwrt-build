@@ -4,12 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       openwrt_version:
-        description: '选择版本 (Auto 自动抓取最新可用版)'
+        description: '选择构建版本 (Docker Tag)'
         required: true
-        default: 'Auto'
+        default: '25.12.0-rc1'
         type: choice
         options:
-          - 'Auto'
           - '25.12.0-rc1'
           - '24.10.5'
           - '23.05.4'
@@ -32,62 +31,36 @@ jobs:
       - name: Checkout 代码
         uses: actions/checkout@v4
 
-      - name: 🔍 探测有效 ImageBuilder 路径
-        id: probe
+      - name: 🐳 准备 Docker 构建目录
         run: |
-          # 设定回退路径：如果 Auto 或选定版本失效，尝试这些已知版本
-          CHECK_LIST="${{ inputs.openwrt_version }} 24.10.0 23.05.4 23.05.0"
-          [ "${{ inputs.openwrt_version }}" == "Auto" ] && CHECK_LIST="$(curl -s https://api.github.com/repos/immortalwrt/immortalwrt/releases | jq -r '.[0].tag_name' | sed 's/v//') $CHECK_LIST"
-
-          SELECTED_URL=""
-          FINAL_VER=""
-
-          for VER in $CHECK_LIST; do
-            [ "$VER" == "Auto" ] && continue
-            URL="https://downloads.immortalwrt.org/releases/${VER}/targets/x86/64/immortalwrt-imagebuilder-${VER}-x86-64.Linux-x86_64.tar.xz"
-            echo "尝试探测: $URL"
-            if wget --spider -q "$URL"; then
-              SELECTED_URL="$URL"
-              FINAL_VER="$VER"
-              break
-            fi
-          done
-
-          if [ -z "$SELECTED_URL" ]; then
-            echo "❌ 错误: 官方下载站暂未发布所选版本的 ImageBuilder，请检查版本号。"
-            exit 1
-          fi
-
-          echo "✅ 确定使用版本: $FINAL_VER"
-          echo "IB_URL=$SELECTED_URL" >> $GITHUB_ENV
-          echo "OWRT_VERSION=$FINAL_VER" >> $GITHUB_ENV
-
-      - name: 安装依赖
-        run: sudo apt-get update && sudo apt-get install -y build-essential gawk git wget unzip python3 jq
-
-      - name: 📦 下载并解压 ImageBuilder (修复目录冲突)
-        run: |
-          wget -q "${{ env.IB_URL }}"
-          mkdir imagebuilder
-          tar -xf *.tar.xz -C imagebuilder --strip-components=1
-
-      - name: 运行定制脚本
-        env:
-          ROOTFS_SIZE: ${{ inputs.profile }}
-          MANAGEMENT_IP: ${{ inputs.custom_ip }}
-        run: |
-          # 适配更名后的脚本
+          # 创建用于接收编译结果的宿主机文件夹
+          mkdir -p output-firmware
+          
+          # 修复脚本换行符并赋予权限
           sed -i 's/\r$//' x86-64/build_ImmortalWrt_mix.sh
           chmod +x x86-64/build_ImmortalWrt_mix.sh
-          cp x86-64/build_ImmortalWrt_mix.sh imagebuilder/
-          cd imagebuilder
-          ./build_ImmortalWrt_mix.sh
+
+      - name: 🚀 运行 Docker ImageBuilder 容器
+        run: |
+          # 拼接 Docker 镜像名称 (使用用户验证过的命名规则)
+          DOCKER_IMAGE="immortalwrt/imagebuilder:x86-64-openwrt-${{ inputs.openwrt_version }}"
+          echo ">>> 正在拉取官方构建镜像: $DOCKER_IMAGE"
+          docker pull "$DOCKER_IMAGE"
+          
+          echo ">>> 启动容器并在无尘环境中执行编译..."
+          # 挂载当前工作目录到容器，传入环境变量并执行脚本
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -e ROOTFS_SIZE=${{ inputs.profile }} \
+            -e MANAGEMENT_IP=${{ inputs.custom_ip }} \
+            "$DOCKER_IMAGE" \
+            /bin/bash -c "cp /workspace/x86-64/build_ImmortalWrt_mix.sh . && ./build_ImmortalWrt_mix.sh && cp bin/targets/x86/64/*combined-efi.img.gz /workspace/output-firmware/ 2>/dev/null || true"
 
       - name: 发布到 Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.OWRT_VERSION }}-${{ github.run_id }}
-          name: ImmortalWrt ${{ env.OWRT_VERSION }} [${{ inputs.custom_ip }}]
-          files: imagebuilder/output-firmware/*
+          tag_name: ${{ inputs.openwrt_version }}-${{ github.run_id }}
+          name: ImmortalWrt ${{ inputs.openwrt_version }} [${{ inputs.custom_ip }}]
+          files: output-firmware/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
