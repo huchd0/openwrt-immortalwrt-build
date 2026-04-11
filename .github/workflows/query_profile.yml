@@ -1,4 +1,4 @@
-name: 🔍 Query Device Profile (全网智能查询引擎)
+name: 🔍 OP Arch & Profile Radar (设备号智能寻址雷达)
 
 on:
   workflow_dispatch:
