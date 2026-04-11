@@ -128,10 +128,20 @@ jobs:
           "
           
           # ==========================================
-          # ⚙️ 处理引擎
+          # ⚙️ 处理引擎 (双向净化版)
           # ==========================================
-          RAW_BRAND="${{ inputs.brand }}"
-          RAW_MODEL="${{ inputs.model }}"
+          
+          # 1. 净化函数：彻底剔除字符串首尾的空格，但不影响中间的空格
+          trim() {
+            local s="$1"
+            s="${s#"${s%%[![:space:]]*}"}"
+            s="${s%"${s##*[![:space:]]}"}"
+            echo "$s"
+          }
+
+          # 2. 接收并净化用户输入 (哪怕用户输入 "   京东云   "，也能洗成 "京东云")
+          RAW_BRAND=$(trim "${{ inputs.brand }}")
+          RAW_MODEL=$(trim "${{ inputs.model }}")
           
           if [ -z "$RAW_BRAND" ] && [ -z "$RAW_MODEL" ]; then
              echo "⚠️ 提示：品牌和型号输入均为空，正在为您列出该架构下所有可用设备："
@@ -139,40 +149,34 @@ jobs:
              exit 0
           fi
 
-          # 终极翻译函数 (原生支持 | 分割及防空格打断)
+          # 3. 核心翻译函数 (支持任意空格、任意排版)
           translate() {
             local input="$1"
             local dict="$2"
             local output="$input"
             
-            # 使用原生 Bash 读取以保证最高兼容性
             while IFS= read -r line; do
-              # 过滤空行
               [[ ! "$line" =~ [^[:space:]] ]] && continue
               
-              # 提取最后一个以空格分割的字符串作为目标，如 (re-cl-01)
-              local target="${line##* }"
+              local target="(${line##*(}"      # 抓取最右侧括号内容
+              local aliases_str="${line%(*}"   # 抓取左侧别名部分
               
-              # 提取前面的所有内容作为别名集合，如 "鲁班|cl01"
-              local aliases_str="${line% $target}"
-              
-              # 严格使用 | 分割别名
               IFS='|' read -ra ALIAS_ARRAY <<< "$aliases_str"
-              for alias in "${ALIAS_ARRAY[@]}"; do
-                # 智能剔除别名可能带有的首尾残留空格，保留内部空格
-                alias="${alias#"${alias%%[![:space:]]*}"}"
-                alias="${alias%"${alias##*[![:space:]]}"}"
+              for raw_alias in "${ALIAS_ARRAY[@]}"; do
+                # 调用净化函数：洗掉 | 左右因为手抖多敲的空格
+                local clean_alias=$(trim "$raw_alias")
                 
-                [ -n "$alias" ] && output="${output//$alias/$target}"
+                [ -n "$clean_alias" ] && output="${output//$clean_alias/$target}"
               done
             done <<< "$dict"
             echo "$output"
           }
 
+          # 4. 执行双字典翻译
           PARSED_BRAND=$(translate "$RAW_BRAND" "$BRAND_DICT")
           PARSED_MODEL=$(translate "$RAW_MODEL" "$MODEL_DICT")
           
-          # 将最终的空格转换为正则中的 .* 符号
+          # 5. 把内部剩下的正常空格（如 mi router）转换为正则模糊匹配
           QUERY_B="${PARSED_BRAND// /.*}"
           QUERY_M="${PARSED_MODEL// /.*}"
 
