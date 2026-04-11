@@ -209,7 +209,7 @@ if [ -z "$RESULT" ]; then
 else
   echo "✅ 匹配成功！为您精准锁定以下组合："
   echo -e "======================================================="
-  FORMATTED_RESULT=$(echo "$RESULT" | awk -F ':' '{printf "%-25s : %s\n", $1, $2}' | sort)
+  FORMATTED_RESULT=$(echo "$RESULT" | awk -F ':' '{printf "%-18s : %s\n", $1, $2}' | sort)
   echo "$FORMATTED_RESULT"
   echo -e "======================================================="
   
