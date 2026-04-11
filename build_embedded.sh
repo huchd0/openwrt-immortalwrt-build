@@ -53,47 +53,92 @@ exit 0
 EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
 
-# --- 6. 豪华装备库 ---
+# --- 6. 装备库 ---
 # 基础必备包
 PKGS="-dnsmasq dnsmasq-full luci-app-openclash luci-app-ttyd luci-i18n-ttyd-zh-cn"
 
 if [ "$BUILD_MODE" == "Lite" ]; then
-    # 乞丐版：拔掉所有非必要外设驱动
-    PKGS="$PKGS -ppp -ppp-mod-pppoe -kmod-usb-core -kmod-usb3"
+    # 极简版：只拔掉占用空间较大且不影响网络的 USB 挂载驱动，保留 PPPoE 拨号！
+    PKGS="$PKGS -kmod-usb-core -kmod-usb3"
 else
-    # 豪华版：装上 Argon 高级主题，并保留所有拨号和 USB 驱动
+    # 豪华版：全功能拉满，带主题和统计
     PKGS="$PKGS luci-theme-argon luci-app-argon-config luci-app-statistics luci-i18n-statistics-zh-cn bash curl"
 fi
 
-# --- 7. 品牌+型号双重锁死防串线逻辑 ---
+# --- 7. 【稳健傻瓜化】品牌+型号双重锁死与智能翻译逻辑 ---
 echo ">>> 🛠️ 执行最高级别安全 Profile 校验..."
 ALL_PROFILES=$(make info | grep "^[a-zA-Z0-9_-]*:" | cut -d ':' -f 1)
 
+# 第一道门：优先尝试精确命中 (如果用户直接填了准确的底层 ID)
 if echo "$ALL_PROFILES" | grep -qx "$DEVICE_PROFILE"; then
     echo "✅ 精确匹配命中: $DEVICE_PROFILE"
 else
-    echo "⚠️ 未命中精确 ID，启动【品牌+型号】模糊安全过滤..."
-    if [ -n "$BRAND" ]; then
-        MATCH_LIST=$(echo "$ALL_PROFILES" | grep -i "$BRAND" | grep -i "$DEVICE_PROFILE" || true)
+    echo "⚠️ 未命中精确 ID，启动【智能翻译 + 唯一性安全校验】引擎..."
+    
+    # 📝 字典区：全站统一的翻译配置
+    BRAND_DICT="
+    小米 mi            (xiaomi)
+    红米               (redmi)
+    华硕 败家之眼      (asus)
+    普联 tp            (tplink|tp-link)
+    京东云 jd          (jdcloud)
+    网件               (netgear)
+    领势               (linksys)
+    腾达               (tenda)
+    水星               (mercury)
+    友善 nanopi        (friendlyarm)
+    新路由             (newifi|d-team)
+    极路由             (hiwifi)
+    中兴               (zte)
+    华三               (h3c)
+    锐捷               (ruijie)
+    "
+    
+    # ⚙️ 翻译引擎函数
+    translate_input() {
+        local input_str="$1"
+        local parsed_str="$input_str"
+        while read -r -a words; do
+            [ ${#words[@]} -lt 2 ] && continue
+            local target="${words[-1]}"
+            for (( i=0; i<${#words[@]}-1; i++ )); do
+                local alias="${words[$i]}"
+                parsed_str="${parsed_str//$alias/$target}"
+            done
+        done <<< "$BRAND_DICT"
+        echo "${parsed_str// /.*}"
+    }
+
+    # 翻译品牌和型号
+    PARSED_BRAND=$(translate_input "$BRAND")
+    PARSED_PROFILE=$(translate_input "$DEVICE_PROFILE")
+    
+    echo ">>> 引擎转化规则: 品牌[$PARSED_BRAND] + 型号[$PARSED_PROFILE]"
+
+    # 执行严苛的交叉匹配
+    if [ -n "$PARSED_BRAND" ]; then
+        MATCH_LIST=$(echo "$ALL_PROFILES" | grep -iE "$PARSED_BRAND" | grep -iE "$PARSED_PROFILE" || true)
     else
-        MATCH_LIST=$(echo "$ALL_PROFILES" | grep -i "$DEVICE_PROFILE" || true)
+        MATCH_LIST=$(echo "$ALL_PROFILES" | grep -iE "$PARSED_PROFILE" || true)
     fi
     
     MATCH_COUNT=$(echo "$MATCH_LIST" | grep -v '^$' | wc -l || echo 0)
 
+    # 第二道门：铁腕唯一性拦截
     if [ "$MATCH_COUNT" -eq 1 ]; then
         DEVICE_PROFILE=$(echo "$MATCH_LIST" | tr -d '[:space:]')
-        echo "✅ 安全替换：唯一命中目标为 $DEVICE_PROFILE"
+        echo "✅ 安全替换通过：找到唯一绝对匹配目标 -> $DEVICE_PROFILE"
     elif [ "$MATCH_COUNT" -gt 1 ]; then
-        echo "❌ 危险动作中止：发现 $MATCH_COUNT 个可能的目标！请从以下列表中挑选一个精确的填写："
+        echo "❌ 危险动作中止：发现 $MATCH_COUNT 个可能的目标！"
+        echo "为坚守【稳定为主】原则，程序拒绝为您盲猜。请从以下列表中挑选一个精确的 ID 填入："
         echo "$MATCH_LIST"
         exit 1
     else
-        echo "❌ 匹配失败：未找到设备。"
+        echo "❌ 匹配失败：当前架构下不存在该设备。请检查品牌或型号是否拼写错误。"
         exit 1
     fi
 fi
 
 # --- 8. 执行最终构建 ---
-echo ">>> 🚀 [${BUILD_MODE}] 模式启动，为您打包豪华固件..."
+echo ">>> 🚀 [${BUILD_MODE}] 模式启动，安全护航，为您打包固件..."
 make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
