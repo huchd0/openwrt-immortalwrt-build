@@ -33,7 +33,6 @@ jobs:
         id: vars
         run: |
           if [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
-            # 如果 Docker API 被限流，静默降级到硬编码默认值
             LATEST=$(curl -sL --max-time 5 "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100" | jq -r '.results[].name' 2>/dev/null | grep -v "SNAPSHOT" | grep -E "openwrt-[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$" | sed -E 's/.*openwrt-//' | sort -V | tail -n 1 || echo "24.10.5")
             [ -z "$LATEST" ] || [ "$LATEST" == "null" ] && LATEST="24.10.5"
             echo "VERSION=$LATEST" >> $GITHUB_ENV
@@ -125,7 +124,7 @@ jobs:
           "
           
           # ==========================================
-          # ⚙️ 3. 核心翻译引擎 (严谨防解析崩溃版)
+          # ⚙️ 3. 核心翻译引擎 (安全转义版)
           # ==========================================
           translate() {
             local input="$1"
@@ -136,10 +135,9 @@ jobs:
               while IFS= read -r line; do
                 [[ ! "$line" =~ [^[:space:]] ]] && continue
                 
-                # 【终极修复】：给小括号穿上防弹衣，避免 Bash 解析器发疯
-                local tmp="${line##*"("}"
-                local target="($tmp"
-                local aliases_str="${line%"("*}"
+                # 采用最安全的底层截取方式，彻底杜绝引号解析错乱
+                local target="(${line##*\(}"
+                local aliases_str="${line%\(*}"
                 
                 IFS='|' read -ra ALIAS_ARRAY <<< "$aliases_str"
                 for raw_alias in "${ALIAS_ARRAY[@]}"; do
@@ -163,13 +161,13 @@ jobs:
           QUERY_M="${PARSED_MODEL// /.*}"
 
           echo "🔍 引擎启动状态："
-          [ -n "$RAW_ARCH" ] && echo "   - 扫描模式: [本地极速穿透 - 指定架构 $RAW_ARCH]" || echo "   - 扫描模式: [静态网页强搜 + 云端并发盲搜]"
+          [ -n "$RAW_ARCH" ] && echo "   - 扫描模式: [本地极速穿透 - 指定架构 $RAW_ARCH]" || echo "   - 扫描模式: [静态爬虫架构遍历 + 云端并发盲搜]"
           [ -n "$QUERY_B" ] && echo "   - 品牌锁定: [$QUERY_B]"
           [ -n "$QUERY_M" ] && echo "   - 型号锁定: [$QUERY_M]"
           echo -e "-------------------------------------------------------\n"
 
           # ==========================================
-          # 🚀 4. 底层提取 (纯静态 HTML 爬虫，免疫流控，消除 awk 嵌套)
+          # 🚀 4. 底层提取 (物理写入爬虫脚本，100%免疫语法崩溃)
           # ==========================================
           ALL_LIST=""
           
@@ -183,4 +181,78 @@ jobs:
                   exit 1
               fi
           else
-              echo ">>> 正在使用静态网页爬虫深入镜像站底层，抓取全网架构
+              echo ">>> 正在使用静态网页爬虫深入镜像站底层，抓取全网架构池..."
+              
+              # 获取主目录
+              TARGETS=$(curl -sL --max-time 10 "https://mirrors.ustc.edu.cn/immortalwrt/releases/${VERSION}/targets/" 2>/dev/null | grep -oE 'href="[a-zA-Z0-9_-]+/"' | cut -d\" -f2 | sed 's/\///g')
+              
+              if [ -z "$TARGETS" ]; then
+                  echo "❌ 第一级目录抓取失败，请检查网络。"
+                  exit 1
+              fi
+              
+              export VERSION="${VERSION}"
+              
+              # === 绝杀技 1：生成实体子目录爬虫脚本 ===
+              cat << 'EOF' > crawler_step1.sh
+#!/bin/bash
+t="$1"
+curl -sL --max-time 10 "https://mirrors.ustc.edu.cn/immortalwrt/releases/${VERSION}/targets/${t}/" 2>/dev/null | grep -oE 'href="[a-zA-Z0-9_-]+/"' | cut -d'"' -f2 | sed 's/\///g' | sed "s/^/$t-/"
+EOF
+              chmod +x crawler_step1.sh
+              
+              ARCH_LIST=$(printf "%s\n" "$TARGETS" | xargs -I {} -P 10 ./crawler_step1.sh "{}")
+              
+              echo ">>> 成功突破限制，锁定 $(echo "$ARCH_LIST" | wc -w) 个核心子架构！"
+              echo ">>> 🚦 正在启动【高并发安全通道】抓取完整云端设备库 (预计耗时 10-20 秒)..."
+              
+              mkdir -p /tmp/profiles
+              
+              # === 绝杀技 2：生成实体 JSON 解析器脚本 ===
+              cat << 'EOF' > crawler_step2.sh
+#!/bin/bash
+arch="$1"
+subpath=$(echo "$arch" | tr "-" "/")
+URL="https://downloads.immortalwrt.org/releases/${VERSION}/targets/${subpath}/profiles.json"
+FALLBACK="https://mirrors.ustc.edu.cn/immortalwrt/releases/${VERSION}/targets/${subpath}/profiles.json"
+
+if ! curl -sL -f --connect-timeout 5 --max-time 30 -o "/tmp/profiles/${arch}_raw.json" "$URL" 2>/dev/null; then
+    curl -sL -f --connect-timeout 5 --max-time 30 -o "/tmp/profiles/${arch}_raw.json" "$FALLBACK" 2>/dev/null || true
+fi
+
+if [ -s "/tmp/profiles/${arch}_raw.json" ] && jq -e . "/tmp/profiles/${arch}_raw.json" >/dev/null 2>&1; then
+    jq -r '.profiles | keys[]' "/tmp/profiles/${arch}_raw.json" | awk -v a="$arch" '{print a " : " $1}' > "/tmp/profiles/${arch}.txt"
+fi
+EOF
+              chmod +x crawler_step2.sh
+              
+              # 调用实体脚本进行高并发，安全无毒
+              printf "%s\n" "$ARCH_LIST" | xargs -I {} -P 15 ./crawler_step2.sh "{}"
+              
+              cat /tmp/profiles/*.txt > /tmp/all_list.txt 2>/dev/null || true
+              ALL_LIST=$(cat /tmp/all_list.txt 2>/dev/null || true)
+              
+              if [ -z "$ALL_LIST" ]; then
+                  echo "❌ 致命错误：数据池抓取失败。"
+                  exit 1
+              fi
+              
+              echo ">>> ✅ 全网数据库下载并合并完毕！总计提取到 $(echo "$ALL_LIST" | wc -l) 款设备。"
+          fi
+
+          # ==========================================
+          # 🎯 5. 双重交叉过滤
+          # ==========================================
+          RESULT="$ALL_LIST"
+          [ -n "$QUERY_B" ] && RESULT=$(echo "$RESULT" | grep -iE "$QUERY_B" || true)
+          [ -n "$QUERY_M" ] && RESULT=$(echo "$RESULT" | grep -iE "$QUERY_M" || true)
+
+          if [ -z "$RESULT" ]; then
+            echo "❌ 匹配失败：数据库中未找到符合条件的设备。"
+            echo "💡 建议检查拼写，或尝试留空一个搜索框扩大检索范围。"
+          else
+            echo "✅ 匹配成功！为您精准锁定以下组合："
+            echo -e "======================================================="
+            echo "$RESULT" | awk -F ':' '{printf "%-25s : %s\n", $1, $2}' | sort
+            echo -e "======================================================="
+          fi
