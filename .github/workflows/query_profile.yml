@@ -1,3 +1,4 @@
+# Profile查询工具，运行只需几秒钟，点开日志里的 📋 执行查询并过滤输出 步骤
 name: 🔍 Query-Device-Profile (查询设备ID)
 
 on:
