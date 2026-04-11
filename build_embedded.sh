@@ -1,54 +1,65 @@
 #!/bin/bash
 set -e
 
-# 1. 自动识别架构下载 OpenClash 内核
+# 1. 架构识别与内核版本锁定
 case "$TARGET_ARCH" in
     *"x86-64"*)    CORE="amd64-compatible" ;;
     *"armv8"*|*"aarch64"*) CORE="arm64" ;;
-    *"armv7"*)     CORE="armv7" ;;
+    *"mediatek-filogic"*)  CORE="arm64" ;; # AX6000 使用此架构
     *"ramips"*)    CORE="mipsle-softfloat" ;;
-    *"mips"*)      CORE="mips-softfloat" ;;
-    *)             CORE="arm64" ;; # 默认
+    *)             CORE="arm64" ;; 
 esac
 
-echo ">>> 架构: $TARGET_ARCH | 选用内核: $CORE <<<"
+echo ">>> 🚀 目标架构: $TARGET_ARCH | 选用内核: $CORE <<<"
 
-# 2. 准备目录
+# 2. 准备目录 (安全清理)
+[ -d files ] && find files -mindepth 1 -delete 2>/dev/null || true
 mkdir -p files/root files/etc/uci-defaults files/etc/openclash/core
 
-# 3. 下载插件
-# 下载 OpenClash APK
-OC_APK=$(curl -s https://api.github.com/repos/vernesong/OpenClash/releases | grep -m 1 "browser_download_url.*\.apk" | cut -d '"' -f 4)
-wget -qO files/root/luci-app-openclash.apk "$OC_APK"
+# 3. 下载插件与内核 (高性能设备建议全部注入)
+echo ">>> 📥 正在获取 OpenClash APK..."
+OC_URL=$(curl -s https://api.github.com/repos/vernesong/OpenClash/releases | grep "browser_download_url" | grep ".apk" | head -n 1 | cut -d '"' -f 4)
+wget -qO files/root/luci-app-openclash.apk "$OC_URL"
 
-# 下载对应内核
+echo ">>> 📥 正在注入 OpenClash Meta 内核..."
+# 红米 AX6000 空间大，直接注入内核，刷完即用
 wget -qO- "https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-${CORE}.tar.gz" | tar -zxf - -C files/etc/openclash/core/
 mv files/etc/openclash/core/clash files/etc/openclash/core/clash_meta 2>/dev/null || true
 chmod +x files/etc/openclash/core/clash_meta 2>/dev/null || true
 
-# 4. 编写初始化脚本 (极其简洁)
+# 4. 编写全自动初始化脚本
 cat << EOF > files/etc/uci-defaults/99-custom-setup
 #!/bin/sh
-# 设置 IP 和 主机名
+# 基础网络设置
 uci set network.lan.ipaddr='$MANAGEMENT_IP'
-uci set system.@system[0].hostname='ImmortalWrt'
+uci set system.@system[0].hostname='Redmi-AX6000'
+uci set system.@system[0].timezone='CST-8'
+uci set system.@system[0].zonename='Asia/Shanghai'
 uci commit system
 
-# 修复软件源
+# 修复软件源为国内镜像 (中科大)
 sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' /etc/apk/repositories.d/*.list 2>/dev/null || true
 
-# 安装插件
-apk add -q --allow-untrusted /root/*.apk
-rm -f /root/*.apk /etc/uci-defaults/99-custom-setup
+# 自动安装预留的 APK 插件
+apk add -q --allow-untrusted /root/*.apk 2>/dev/null || true
+rm -f /root/*.apk
+rm -f /etc/uci-defaults/99-custom-setup
 exit 0
 EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
 
-# 5. 定义软件包 (只包含通用插件，不含 x86 网卡驱动)
-PKGS="luci luci-base luci-compat luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn \
-bash jq curl ca-bundle luci-app-ttyd luci-i18n-ttyd-zh-cn \
-luci-app-statistics luci-i18n-statistics-zh-cn \
-coreutils-nohup block-mount kmod-fs-ext4"
+# 5. 定义软件包列表 (红米 AX6000 专属满血包)
+# 空间大就是任性，把好用的全装上
+PKGS="-dnsmasq dnsmasq-full \
+luci-app-openclash \
+luci-app-ttyd \
+luci-i18n-ttyd-zh-cn \
+luci-app-statistics \
+luci-i18n-statistics-zh-cn \
+luci-theme-argon \
+luci-app-argon-config \
+bash jq curl htop coreutils-nohup"
 
 # 6. 执行构建
-make info
+echo ">>> 🛠️ 开始构建固件: $DEVICE_PROFILE ..."
+make image PROFILE="$DEVICE_PROFILE" PACKAGES="$PKGS" FILES="files"
