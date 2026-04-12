@@ -241,8 +241,8 @@ chmod +x files/etc/uci-defaults/99-custom-setup
 
 echo ">>> 5. 配置 ImmortalWrt 专属软件列表 <<<"
 
-# 基础组件与中文包 (移除了已被 ImmortalWrt 内置重叠的部分)
-PKG_CORE="-dnsmasq dnsmasq-full luci luci-base luci-compat luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn"
+# 基础组件与中文包
+PKG_CORE="-dnsmasq -dnsmasq-default dnsmasq-full luci luci-base luci-compat luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn"
 
 # 磁盘与文件系统支持
 PKG_DISK="block-mount blkid lsblk parted fdisk e2fsprogs kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-exfat"
@@ -254,7 +254,7 @@ PKG_DEPENDS="coreutils-nohup bash jq curl ca-bundle libcap libcap-bin ruby ruby-
 PKG_NETWORK="ip-full iptables-mod-tproxy iptables-mod-extra kmod-tun kmod-inet-diag kmod-nft-tproxy kmod-igc kmod-igb kmod-r8169 iwinfo"
 
 # Wi-Fi 7 (MT7925) 与蓝牙支持
-PKG_WIFI_BT="-wpad-basic-mbedtls -wpad-basic-wolfssl wpad-openssl kmod-mt7925e kmod-mt7925-firmware kmod-btusb bluez-daemon kmod-input-uinput"
+PKG_WIFI_BT="-wpad -wpad-basic -wpad-basic-mbedtls -wpad-basic-wolfssl -wpad-mbedtls -wpad-wolfssl wpad-openssl kmod-mt7925e kmod-mt7925-firmware kmod-btusb bluez-daemon kmod-input-uinput"
 
 # 系统监控 (剔除了 mqtt，结合上面的幽灵配置使用)
 PKG_MONITOR="nano htop ethtool tcpdump mtr conntrack iftop screen collectd-mod-thermal collectd-mod-sensors collectd-mod-cpu collectd-mod-ping collectd-mod-interface collectd-mod-rrdtool collectd-mod-iwinfo"
