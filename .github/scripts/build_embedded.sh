@@ -1,5 +1,5 @@
 #!/bin/bash
-# 注意：这里不使用 set -e，因为我们要手动处理报错，防止 ImageBuilder 虚假报错导致脚本自杀
+# 注意：取消 set -e，以便在 ImageBuilder 报虚假错误时，脚本能继续执行抢救逻辑
 set -o pipefail
 
 # ==========================================
@@ -72,15 +72,15 @@ mkdir -p files/etc/uci-defaults files/etc/openclash/core
 PKGS="-dnsmasq dnsmasq-full luci-app-ttyd luci-i18n-ttyd-zh-cn"
 
 if [ "$BUILD_MODE" == "Lite" ]; then
-    echo ">>> 🗑️ [丐版模式] 强行剔除组件..."
+    echo ">>> 🗑️ [丐版模式] 强行剔除所有组件..."
     PKGS="$PKGS -luci-app-openclash -ppp -ppp-mod-pppoe -kmod-usb-core -kmod-usb3 -kmod-usb2"
 
 elif [ "$BUILD_MODE" == "Extroot" ]; then
-    echo ">>> 💾 [扩容模式] 注入 USB 驱动并执行极限瘦身术..."
-    # 💥 这里加了核心改动：踢掉无线协议 wpad，确保 16MB 空间绝对安全
-    # 刷好后插 U 盘扩容，联网 opkg install wpad-basic-wolfssl 即可恢复无线
+    echo ">>> 💾 [扩容模式] 注入 USB 驱动并保持无线/拨号功能..."
+    # ✅ 恢复 wpad 和 ppp 逻辑：不再使用减号剔除它们
+    # 仅剔除体积最大的 OpenClash，为 USB 驱动腾出约 3.5MB 空间
     PKGS="$PKGS block-mount e2fsprogs kmod-fs-ext4 kmod-usb-core kmod-usb3 kmod-usb-storage fdisk"
-    PKGS="$PKGS -luci-app-openclash -ppp -ppp-mod-pppoe -wpad-basic-wolfssl -wpad-mini -wpad"
+    PKGS="$PKGS -luci-app-openclash"
     
     cat << 'EOF' > files/etc/uci-defaults/90-auto-extroot
 #!/bin/sh
@@ -101,7 +101,6 @@ EOF
 
 else
     echo ">>> 🔌 [豪华模式] 注入全套组件..."
-    # 豪华模式才下载内核，防止其他模式超容
     wget -qO- "https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-${CORE}.tar.gz" | tar -zxf - -C files/etc/openclash/core/
     PKGS="$PKGS luci-app-openclash luci-theme-argon block-mount e2fsprogs kmod-fs-ext4 kmod-usb-core kmod-usb3 kmod-usb-storage"
 fi
@@ -165,7 +164,6 @@ fi
 # ==========================================
 # 🏷️ 9. 重命名与清理
 # ==========================================
-# 如果是在抢救目录，则跳转
 [ -d "bin/targets/salvaged" ] && cd bin/targets/salvaged || cd bin/targets/*/*
 for img in *.bin; do
     if [ -f "$img" ]; then
