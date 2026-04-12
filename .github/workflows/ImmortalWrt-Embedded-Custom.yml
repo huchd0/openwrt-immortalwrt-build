@@ -4,24 +4,25 @@ on:
   workflow_dispatch:
     inputs:
       arch:
-        description: '1. 架构(Arch)* (如: ramips-mt7621, 自动去空格)'
+        description: '1. 架构(Arch)* (如: ramips-mt7621)'
         required: true
         default: 'ramips-mt7621'
       device_profile:
-        description: '2. 设备代号(Profile)* (全字匹配: jdcloud_re-sp-01b)'
+        description: '2. 设备代号(Profile)* (如: jdcloud_re-sp-01b)'
         required: true
         default: 'jdcloud_re-sp-01b'
       brand:
-        description: '3. 品牌 (选填，防砖双保险，如: 京东云)'
+        description: '3. 品牌 (选填，防砖双保险)'
         required: false
         default: ''
       build_mode:
-        description: '4. 构建模式 (Lite 丐版极限防超容 / Deluxe 豪华版含U盘扩容驱动)'
+        description: '4. 模式: Lite(丐版) / Extroot(智能U盘扩容) / Deluxe(豪华版)'
         required: true
-        default: 'Deluxe'
+        default: 'Extroot'
         type: choice
         options:
           - 'Deluxe'
+          - 'Extroot'
           - 'Lite'
       openwrt_version:
         description: '5. 选择主线版本'
@@ -33,7 +34,7 @@ on:
           - '24.10.5'
           - '25.12.0-rc1'
       custom_version:
-        description: '6. 【时光机】手动填入旧版本 (填写则覆盖上方)'
+        description: '6. 【时光机】手动填入旧版本'
         required: false
         default: ''
       custom_router_ip:
@@ -51,7 +52,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🔍 净化输入变量与解析版本
+      - name: 🔍 净化变量与解析版本
         id: vars
         run: |
           CLEAN_ARCH=$(echo "${{ inputs.arch }}" | xargs)
@@ -60,16 +61,10 @@ jobs:
           
           if [ -n "${{ inputs.custom_version }}" ]; then
             SELECTED_VER=$(echo "${{ inputs.custom_version }}" | xargs)
-            echo ">>> 🛰️ 切换至历史时空: $SELECTED_VER"
           elif [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
-            echo ">>> 探测 [$CLEAN_ARCH] 最新 Tag..."
             LATEST=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100&name=${CLEAN_ARCH}-openwrt-" | \
               jq -r '.results[].name' | grep -v "SNAPSHOT" | grep -E "[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$" | sort -V | tail -n 1 | sed "s/${CLEAN_ARCH}-openwrt-//")
-            
-            if [ -z "$LATEST" ] || [ "$LATEST" == "null" ]; then
-              LATEST="24.10.5"
-            fi
-            SELECTED_VER="$LATEST"
+            SELECTED_VER="${LATEST:-24.10.5}"
           else
             SELECTED_VER="${{ inputs.openwrt_version }}"
           fi
@@ -98,17 +93,20 @@ jobs:
             immortalwrt/imagebuilder:${{ env.CLEAN_ARCH }}-openwrt-${{ env.VERSION }} \
             /bin/bash /home/build/immortalwrt/build.sh
 
-      - name: 📦 发布固件至 Release
+      - name: 📦 发布 Release
         uses: softprops/action-gh-release@v2.4.1
         if: success()
         with:
           tag_name: "${{ env.CLEAN_PROFILE }}-${{ env.VERSION }}-${{ github.run_id }}"
           body: |
             ## 🛠️ 构建详情
-            - **内核架构**: ${{ env.CLEAN_ARCH }}
             - **设备代号**: ${{ env.CLEAN_PROFILE }}
             - **构建模式**: **${{ inputs.build_mode }}**
             - **固件版本**: ${{ env.VERSION }}
+            - **管理网址**: http://${{ inputs.custom_router_ip }}
+            
+            > 💡 **Extroot 扩容模式说明**: 
+            > 刷入后，请在路由器**通电开机前**插上 U 盘。系统会自动将其格式化为 ext4 并挂载为系统空间，随后会自动重启一次。重启后即可拥有 U 盘的无限空间！
           files: |
             bin/targets/*/*/*.bin
             bin/targets/*/*/*.img.gz
