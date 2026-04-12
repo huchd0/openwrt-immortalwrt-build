@@ -1,0 +1,115 @@
+name: 🚀 ImmortalWrt-Embedded-Custom (定制化构建)
+
+on:
+  workflow_dispatch:
+    inputs:
+      arch:
+        description: '1. 架构(Arch)* (如: ramips-mt7621)'
+        required: true
+        default: 'ramips-mt7621'
+      device_profile:
+        description: '2. 设备代号(Profile)* (需完全匹配，如: jdcloud_re-sp-01b)'
+        required: true
+        default: 'jdcloud_re-sp-01b'
+      brand:
+        description: '3. 品牌 [防刷砖双保险] (如: 京东云, xiaomi)'
+        required: true
+        default: '京东云'
+      openwrt_version:
+        description: '4. 选择主线版本 (Auto 将安全抓取最新版)'
+        required: false
+        default: 'Auto'
+        type: choice
+        options:
+          - 'Auto'
+          - '24.10.5'
+          - '25.12.0-rc1'
+      custom_version:
+        description: '5. 【时光机】手动填入旧版本 (如 23.05.4，填写则无视上方选项)'
+        required: false
+        default: ''
+      custom_router_ip:
+        description: '6. 固件默认管理 IP'
+        required: true
+        default: '192.168.10.1'
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔍 净化输入变量与解析版本
+        id: vars
+        run: |
+          # 净化空格
+          CLEAN_ARCH=$(echo "${{ inputs.arch }}" | xargs)
+          CLEAN_PROFILE=$(echo "${{ inputs.device_profile }}" | xargs)
+          CLEAN_BRAND=$(echo "${{ inputs.brand }}" | xargs)
+          
+          # 版本解析
+          if [ -n "${{ inputs.custom_version }}" ]; then
+            SELECTED_VER=$(echo "${{ inputs.custom_version }}" | xargs)
+            echo ">>> 🛰️ 检测到手动版本，切换至历史时空: $SELECTED_VER"
+          elif [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
+            echo ">>> 正在探测 [$CLEAN_ARCH] 的最新 Tag..."
+            LATEST=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100&name=${CLEAN_ARCH}-openwrt-" | \
+              jq -r '.results[].name' | grep -v "SNAPSHOT" | grep -E "[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$" | sort -V | tail -n 1 | sed "s/${CLEAN_ARCH}-openwrt-//")
+            
+            if [ -z "$LATEST" ] || [ "$LATEST" == "null" ]; then
+              echo "⚠️ 探测失败，回退至稳定版 24.10.5"
+              LATEST="24.10.5"
+            fi
+            SELECTED_VER="$LATEST"
+          else
+            SELECTED_VER="${{ inputs.openwrt_version }}"
+          fi
+          
+          echo "✅ 最终锁定版本: $SELECTED_VER"
+          echo "VERSION=$SELECTED_VER" >> $GITHUB_ENV
+          echo "CLEAN_ARCH=$CLEAN_ARCH" >> $GITHUB_ENV
+          echo "CLEAN_PROFILE=$CLEAN_PROFILE" >> $GITHUB_ENV
+          echo "CLEAN_BRAND=$CLEAN_BRAND" >> $GITHUB_ENV
+
+      - name: 🏗️ 执行 Docker 构建引擎
+        run: |
+          mkdir -p bin files
+          SCRIPT_PATH="./.github/scripts/build_embedded.sh"
+          [ -f "$SCRIPT_PATH" ] && sed -i 's/\r$//' "$SCRIPT_PATH"
+          
+          echo ">>> 🚀 启动镜像: immortalwrt/imagebuilder:${{ env.CLEAN_ARCH }}-openwrt-${{ env.VERSION }}"
+          
+          docker run --rm -i \
+            --user root \
+            -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
+            -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
+            -v "${{ github.workspace }}/.github/scripts/build_embedded.sh:/home/build/immortalwrt/build.sh" \
+            -e MANAGEMENT_IP="${{ inputs.custom_router_ip }}" \
+            -e TARGET_ARCH="${{ env.CLEAN_ARCH }}" \
+            -e DEVICE_PROFILE="${{ env.CLEAN_PROFILE }}" \
+            -e BRAND_INPUT="${{ env.CLEAN_BRAND }}" \
+            immortalwrt/imagebuilder:${{ env.CLEAN_ARCH }}-openwrt-${{ env.VERSION }} \
+            /bin/bash /home/build/immortalwrt/build.sh
+
+      - name: 📦 发布固件至 Release
+        uses: softprops/action-gh-release@v2.4.1
+        if: success()
+        with:
+          tag_name: "${{ env.CLEAN_PROFILE }}-${{ env.VERSION }}-${{ github.run_id }}"
+          body: |
+            ## 🛠️ 构建详情
+            - **内核架构 (Arch)**: ${{ env.CLEAN_ARCH }}
+            - **设备代号 (Profile)**: ${{ env.CLEAN_PROFILE }}
+            - **安全匹配品牌**: ${{ env.CLEAN_BRAND }}
+            - **固件版本**: ${{ env.VERSION }}
+            - **默认 IP**: ${{ inputs.custom_router_ip }}
+          files: |
+            bin/targets/*/*/*.bin
+            bin/targets/*/*/*.img.gz
+            bin/targets/*/*/sha256sums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
