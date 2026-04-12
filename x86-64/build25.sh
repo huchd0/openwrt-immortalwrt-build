@@ -30,12 +30,12 @@ kmod-e1000e kmod-igb kmod-r8169 kmod-tun \
 luci-app-openclash coreutils-nohup bash dnsmasq-full ipset ip-full libcap libcap-bin ruby ruby-yaml unzip kmod-nft-tproxy iptables-nft"
 
 # =========================================================
-# 2. 动态注入 Docker 组件
+# 2. 动态注入 Docker 组件 (兼容 24.10+ apk 系统)
 # =========================================================
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
     echo "🐳 检测到 Docker 集成需求，正在添加相关包..."
-    # kmod-veth 是 Docker 容器网络互通的核心依赖，极易被漏掉
-    PACKAGES="$PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker docker-compose dockerd kmod-veth iptables-mod-extra iptables-mod-nfqueue iptables-mod-filter"
+    # 移除了已被淘汰的 iptables-mod-*，只保留核心和虚拟网卡驱动
+    PACKAGES="$PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker docker-compose dockerd kmod-veth"
 fi
 
 # =========================================================
