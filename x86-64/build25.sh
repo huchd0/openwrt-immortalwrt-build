@@ -353,12 +353,8 @@ PKG_LUCI_APPS=(
     "luci-i18n-nlbwmon-zh-cn"
     "luci-app-statistics"
     "luci-i18n-statistics-zh-cn"
-    "luci-app-upnp"
-    "luci-i18n-upnp-zh-cn"
     "luci-app-autoreboot"
     "luci-i18n-autoreboot-zh-cn"
-    # 如果未来想加什么插件，直接在这里回车新建一行，加上双引号即可
-    # "luci-app-zerotier" 
 )
 
 # === 魔法组装：将所有数组安全地合并为一个大字符串 ===
