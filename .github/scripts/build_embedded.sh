@@ -3,7 +3,7 @@
 set -o pipefail
 
 # ==========================================
-# 📝 1. 品牌容错字典 (保持你的逻辑)
+# 📝 1. 品牌容错字典
 # ==========================================
 BRAND_DICT="
 小米|mi                (xiaomi)
@@ -76,18 +76,62 @@ if [ "$BUILD_MODE" == "Lite" ]; then
     PKGS="$PKGS -luci-app-openclash -ppp -ppp-mod-pppoe -kmod-usb-core -kmod-usb3 -kmod-usb2"
 
 elif [ "$BUILD_MODE" == "Extroot" ]; then
-    echo ">>> 💾 [扩容模式] 注入 USB 驱动并保持无线/拨号功能..."
-    # ✅ 恢复 wpad 和 ppp 逻辑：不再使用减号剔除它们
-    # 仅剔除体积最大的 OpenClash，为 USB 驱动腾出约 3.5MB 空间
+    echo ">>> 💾 [扩容模式] 注入 USB 驱动，配置容错与全自动装机逻辑..."
+    # ✅ 固件本底保留了 wpad (无线) 和 ppp (拨号)，仅剔除最大的 OpenClash
     PKGS="$PKGS block-mount e2fsprogs kmod-fs-ext4 kmod-usb-core kmod-usb3 kmod-usb-storage fdisk"
     PKGS="$PKGS -luci-app-openclash"
     
+    # 💥 全自动扩容与后台装机脚本 (注入到路由器开机任务)
     cat << 'EOF' > files/etc/uci-defaults/90-auto-extroot
 #!/bin/sh
-if uci -q get fstab.@mount[0].target | grep -q "/overlay"; then exit 0; fi
+
+# 1. 容错校验：判断当前的系统根目录 (/overlay) 是否挂载在 U 盘上
+if df /overlay | grep -q "/dev/sd"; then
+    # 系统已经在 U 盘运行！检查是否安装过 OpenClash
+    if [ ! -f /usr/bin/openclash ]; then
+        logger -t Extroot "✅ 检测到系统已成功运行在 U 盘，启动后台插件补全程序..."
+        
+        # 开启后台子进程进行下载，防止阻塞路由器的正常开机过程
+        (
+            # 循环检测网络连通性 (最多等待约 3 分钟，等待拨号成功)
+            for i in $(seq 1 36); do
+                if ping -c 1 -W 1 223.5.5.5 >/dev/null 2>&1; then
+                    logger -t Extroot "🌐 网络已连接！开始下载安装 Argon, UPnP, AutoReboot, Curl 及 OpenClash..."
+                    opkg update
+                    # 批量安装 U 盘必备全家桶
+                    opkg install luci-theme-argon luci-app-argon-config luci-app-upnp luci-app-autoreboot curl luci-app-openclash
+                    
+                    # 自动识别架构并注入 Meta 内核
+                    CORE_ARCH=$(uname -m)
+                    case "$CORE_ARCH" in
+                        x86_64) ARCH="amd64" ;;
+                        mips*) ARCH="mipsle-softfloat" ;;
+                        aarch64) ARCH="arm64" ;;
+                        *) ARCH="arm64" ;;
+                    esac
+                    
+                    mkdir -p /etc/openclash/core
+                    curl -skL "https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-${ARCH}.tar.gz" | tar -zxf - -C /etc/openclash/core/
+                    mv /etc/openclash/core/clash /etc/openclash/core/clash_meta 2>/dev/null
+                    chmod +x /etc/openclash/core/clash_meta
+                    
+                    logger -t Extroot "🎉 U 盘环境插件全家桶自动部署完成！建议刷新后台页面。"
+                    break
+                fi
+                sleep 5
+            done
+        ) &
+    fi
+    # 既然在 U 盘跑了，脚本使命完成，退出 0 让系统自我销毁此脚本
+    exit 0
+fi
+
+# 2. 扩容检测：如果在内置 16MB 运行，寻找是否有 U 盘插入
 sleep 15
 DEVICE=$(block info | grep -oE "/dev/sd[a-z][0-9]+" | head -n 1)
+
 if [ -n "$DEVICE" ]; then
+    logger -t Extroot "💾 检测到 U 盘 $DEVICE，开始格式化并执行系统数据迁移..."
     mkfs.ext4 -F -L "extroot" "$DEVICE"
     mkdir -p /mnt/extroot && mount "$DEVICE" /mnt/extroot
     tar -C /overlay -cvf - . | tar -C /mnt/extroot -xf -
@@ -95,6 +139,11 @@ if [ -n "$DEVICE" ]; then
     uci set fstab.@mount[0].target='/overlay'
     uci set fstab.@mount[0].enabled='1'
     uci commit fstab && sync && reboot
+else
+    # 容错降级：没插 U 盘
+    logger -t Extroot "⚠️ 未检测到 U 盘，当前运行于内置极简容错模式。若需扩容安装全家桶，请插上 U 盘后重启路由器。"
+    # 退出 1！让系统保留此脚本，下次开机还会检测！
+    exit 1
 fi
 EOF
     chmod +x files/etc/uci-defaults/90-auto-extroot
