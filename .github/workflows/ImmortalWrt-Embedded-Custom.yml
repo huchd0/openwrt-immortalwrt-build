@@ -4,15 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       arch:
-        description: '1. 架构(Arch)* (如: ramips-mt7621)'
+        description: '1. 架构(Arch)* (如: ramips-mt7621, 左右空格会自动清除)'
         required: true
         default: 'ramips-mt7621'
       device_profile:
-        description: '2. 设备代号(Profile)* (需完全匹配，如: jdcloud_re-sp-01b)'
+        description: '2. 设备代号(Profile)* (全字匹配，大小写无妨: jdcloud_re-sp-01b)'
         required: true
         default: 'jdcloud_re-sp-01b'
       brand:
-        description: '3. 品牌 [防刷砖双保险] (如: 京东云, xiaomi)'
+        description: '3. 品牌 [防砖双保险] (如: 京东云, xiaomi)'
         required: true
         default: '京东云'
       openwrt_version:
@@ -25,7 +25,7 @@ on:
           - '24.10.5'
           - '25.12.0-rc1'
       custom_version:
-        description: '5. 【时光机】手动填入旧版本 (如 23.05.4，填写则无视上方选项)'
+        description: '5. 【时光机】手动填入旧版本 (如 23.05.4，填写则覆盖上方选项)'
         required: false
         default: ''
       custom_router_ip:
@@ -46,12 +46,12 @@ jobs:
       - name: 🔍 净化输入变量与解析版本
         id: vars
         run: |
-          # 净化空格
+          # 【自动去空格魔法】彻底清除输入框首尾的空格
           CLEAN_ARCH=$(echo "${{ inputs.arch }}" | xargs)
           CLEAN_PROFILE=$(echo "${{ inputs.device_profile }}" | xargs)
           CLEAN_BRAND=$(echo "${{ inputs.brand }}" | xargs)
           
-          # 版本解析
+          # 版本解析逻辑
           if [ -n "${{ inputs.custom_version }}" ]; then
             SELECTED_VER=$(echo "${{ inputs.custom_version }}" | xargs)
             echo ">>> 🛰️ 检测到手动版本，切换至历史时空: $SELECTED_VER"
