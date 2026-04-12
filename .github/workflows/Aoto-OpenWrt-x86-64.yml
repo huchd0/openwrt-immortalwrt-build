@@ -78,16 +78,16 @@ jobs:
           # MANAGEMENT_IP 从文件顶部的全局 env 读取，确保统一
         run: |
           # 🌟 核心防护：抹除 Windows 换行符
-          sed -i 's/\r$//' build_mix.sh
+          sed -i 's/\r$//' OpenWrt-x86-64-build.sh
           
-          chmod +x build_mix.sh
-          cp build_mix.sh imagebuilder/
+          chmod +x OpenWrt-x86-64-build.sh
+          cp OpenWrt-x86-64-build.sh imagebuilder/
           cd imagebuilder
           
           # 双重防护
-          sed -i 's/\r$//' build_mix.sh
+          sed -i 's/\r$//' OpenWrt-x86-64-build.sh
           
-          ./build_mix.sh
+          ./OpenWrt-x86-64-build.sh
 
       - name: 生成发布标签
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
