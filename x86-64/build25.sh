@@ -229,11 +229,24 @@ if uci get luci.themes.Argon >/dev/null 2>&1; then
     uci commit luci
 fi
 
+# ==========================================
+# --- E. 终端神器 ttyd 联网自动补装 (暗渡陈仓) ---
+# ==========================================
+# 开启一个后台子进程，不阻塞路由器开机
+(
+    # 每隔 5 秒 ping 一次阿里 DNS，直到网络通畅
+    while ! ping -c 1 -W 2 223.5.5.5 >/dev/null 2>&1; do
+        sleep 5
+    done
+    # 网络一旦通畅，立刻静默安装 ttyd
+    apk update
+    apk add luci-app-ttyd luci-i18n-ttyd-zh-cn
+) >/dev/null 2>&1 &
+
 rm -f /etc/uci-defaults/99-custom-setup
 exit 0
 EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
-
 
 echo "=== 5. 配置 ImmortalWrt 专属软件列表 (结构化数组防错版) ==="
 
@@ -344,8 +357,8 @@ PKG_LUCI_APPS=(
     "luci-theme-argon"
     "luci-app-argon-config"
     "luci-i18n-argon-config-zh-cn"
-    "luci-app-ttyd"
-    "luci-i18n-ttyd-zh-cn"
+    #"luci-app-ttyd"                <-- 加上井号屏蔽
+    #"luci-i18n-ttyd-zh-cn"         <-- 加上井号屏蔽
     "luci-app-ksmbd"
     "luci-i18n-ksmbd-zh-cn"
     "nlbwmon"
@@ -353,6 +366,8 @@ PKG_LUCI_APPS=(
     "luci-i18n-nlbwmon-zh-cn"
     "luci-app-statistics"
     "luci-i18n-statistics-zh-cn"
+    #"luci-app-upnp"                <-- 加上井号屏蔽
+    #"luci-i18n-upnp-zh-cn"         <-- 加上井号屏蔽
     "luci-app-autoreboot"
     "luci-i18n-autoreboot-zh-cn"
 )
