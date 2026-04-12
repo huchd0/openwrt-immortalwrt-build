@@ -4,6 +4,7 @@ set -e
 # 接收 GitHub Actions 传来的环境变量
 ROOTFS_SIZE=${ROOTFS_SIZE:-1024}
 MANAGEMENT_IP=${MANAGEMENT_IP:-192.168.100.1}
+INCLUDE_DOCKER=${INCLUDE_DOCKER:-yes}
 
 if [[ ! "$MANAGEMENT_IP" == *"/"* ]]; then
     MANAGEMENT_IP="${MANAGEMENT_IP}/24"
@@ -26,8 +27,8 @@ echo "CONFIG_GRUB_IMAGES=n" >> .config
 echo "=== 2. 准备初始化文件夹 ==="
 mkdir -p files/etc/uci-defaults
 mkdir -p files/etc/init.d
-mkdir -p files/usr/bin         # <--- 修复点：提前创建 usr/bin 目录
-mkdir -p files/etc/crontabs    # <--- 修复点：提前创建定时任务目录
+mkdir -p files/usr/bin
+mkdir -p files/etc/crontabs
 
 echo "=== 3. 下载必要核心与驱动固件 ==="
 
@@ -213,6 +214,35 @@ if [ -x "/etc/init.d/collectd" ] && [ ! -f "/etc/collectd_inited" ]; then
     /etc/init.d/collectd restart
     
     touch /etc/collectd_inited
+fi
+
+# --- D2. Docker 自动化网络互通配置 ---
+if [ "$INCLUDE_DOCKER" = "yes" ]; then
+    [ ! -f "/etc/config/dockerd" ] && touch /etc/config/dockerd
+    uci set dockerd.globals=globals
+    uci set dockerd.globals.data_root='/mnt/sda3/docker'
+    uci commit dockerd
+
+    uci add firewall zone
+    uci set firewall.@zone[-1].name='docker'
+    uci set firewall.@zone[-1].network='docker0'
+    uci set firewall.@zone[-1].input='ACCEPT'
+    uci set firewall.@zone[-1].output='ACCEPT'
+    uci set firewall.@zone[-1].forward='ACCEPT'
+
+    uci add firewall forwarding
+    uci set firewall.@forwarding[-1].src='docker'
+    uci set firewall.@forwarding[-1].dest='lan'
+
+    uci add firewall forwarding
+    uci set firewall.@forwarding[-1].src='lan'
+    uci set firewall.@forwarding[-1].dest='docker'
+
+    uci add firewall forwarding
+    uci set firewall.@forwarding[-1].src='docker'
+    uci set firewall.@forwarding[-1].dest='wan'
+    
+    uci commit firewall
 fi
 
 if uci get luci.themes.Argon >/dev/null 2>&1; then
@@ -414,6 +444,17 @@ PKG_LUCI_APPS=(
     "luci-i18n-autoreboot-zh-cn"
 )
 
+# 动态加载 Docker 包
+PKG_DOCKER=()
+if [ "$INCLUDE_DOCKER" = "yes" ]; then
+    PKG_DOCKER=(
+        "dockerd"
+        "docker-compose"
+        "luci-app-dockerman"
+        "luci-i18n-dockerman-zh-cn"
+    )
+fi
+
 ALL_PKGS=(
     "${PKG_CORE[@]}"
     "${PKG_DISK[@]}"
@@ -423,6 +464,7 @@ ALL_PKGS=(
     "${PKG_MONITOR[@]}"
     "${PKG_HW_TOOLS[@]}"
     "${PKG_LUCI_APPS[@]}"
+    "${PKG_DOCKER[@]}"
 )
 
 PACKAGES="${ALL_PKGS[*]}"
