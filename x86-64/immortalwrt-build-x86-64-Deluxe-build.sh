@@ -300,41 +300,41 @@ cat << 'EOF_UPGRADE' > files/usr/bin/upg
 LOGFILE="/root/upg.log"
 
 # 控制日志大小：如果日志超过 1MB，就清空重建，防止撑爆存储
-if [ -f "\$LOGFILE" ] && [ \$(wc -c < "\$LOGFILE") -gt 1048576 ]; then
-    echo "日志过大，已清空重建" > "\$LOGFILE"
+if [ -f "$LOGFILE" ] && [ $(wc -c < "$LOGFILE") -gt 1048576 ]; then
+    echo "日志过大，已清空重建" > "$LOGFILE"
 fi
 
-echo "===== Auto Upgrade Start: \$(date) =====" >> "\$LOGFILE"
+echo "===== Auto Upgrade Start: $(date) =====" >> "$LOGFILE"
 
 if opkg list-installed | grep -q '^openclash '; then
-    openclash_before=\$(opkg list-installed | grep '^openclash ' | awk '{print \$2}')
+    openclash_before=$(opkg list-installed | grep '^openclash ' | awk '{print $2}')
 else
     openclash_before=""
 fi
 
-opkg update >> "\$LOGFILE" 2>&1
+opkg update >> "$LOGFILE" 2>&1
 
-for pkg in \$(opkg list-upgradable | awk '{print \$1}'); do
-    case \$pkg in
+for pkg in $(opkg list-upgradable | awk '{print $1}'); do
+    case $pkg in
         base-files|busybox|dnsmasq*|dropbear|firewall*|fstools|kernel|kmod-*|libc|luci|mtd|opkg|procd|uhttpd)
             # 核心系统组件绝对不升级，保障路由不死机
             ;;
         *)
-            echo "升级: \$pkg" >> "\$LOGFILE"
-            opkg upgrade \$pkg >> "\$LOGFILE" 2>&1
+            echo "升级: $pkg" >> "$LOGFILE"
+            opkg upgrade $pkg >> "$LOGFILE" 2>&1
             ;;
     esac
 done
 
-if [ -n "\$openclash_before" ]; then
-    openclash_after=\$(opkg list-installed | grep '^openclash ' | awk '{print \$2}')
-    if [ "\$openclash_before" != "\$openclash_after" ]; then
-        echo "OpenClash 已升级 (\$openclash_before -> \$openclash_after)，重启服务..." >> "\$LOGFILE"
-        /etc/init.d/openclash restart >> "\$LOGFILE" 2>&1
+if [ -n "$openclash_before" ]; then
+    openclash_after=$(opkg list-installed | grep '^openclash ' | awk '{print $2}')
+    if [ "$openclash_before" != "$openclash_after" ]; then
+        echo "OpenClash 已升级 ($openclash_before -> $openclash_after)，重启服务..." >> "$LOGFILE"
+        /etc/init.d/openclash restart >> "$LOGFILE" 2>&1
     fi
 fi
 
-echo "===== Auto Upgrade End: \$(date) =====" >> "\$LOGFILE"
+echo "===== Auto Upgrade End: $(date) =====" >> "$LOGFILE"
 EOF_UPGRADE
 
 # 2. 赋予可执行权限
@@ -342,7 +342,6 @@ chmod +x files/usr/bin/upg
 
 # 3. 写入 Cron 定时任务 (隔天凌晨 2 点自动执行)
 echo "0 2 */2 * * /usr/bin/upg" >> files/etc/crontabs/root
-
 
 echo "=== 5. 配置 ImmortalWrt 专属软件列表 ==="
 
