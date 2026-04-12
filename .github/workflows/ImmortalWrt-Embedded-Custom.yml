@@ -12,9 +12,9 @@ on:
         required: true
         default: 'jdcloud_re-sp-01b'
       brand:
-        description: '3. 品牌 [防砖双保险] (如: 京东云, xiaomi)'
-        required: true
-        default: '京东云'
+        description: '3. 品牌 (选填，但强烈建议填写作防砖双保险，如: 京东云)'
+        required: false
+        default: ''
       openwrt_version:
         description: '4. 选择主线版本 (Auto 将安全抓取最新版)'
         required: false
@@ -31,7 +31,7 @@ on:
       custom_router_ip:
         description: '6. 固件默认管理 IP'
         required: true
-        default: '192.168.100.1'
+        default: '192.168.10.1'
 
 jobs:
   build:
@@ -104,7 +104,7 @@ jobs:
             ## 🛠️ 构建详情
             - **内核架构 (Arch)**: ${{ env.CLEAN_ARCH }}
             - **设备代号 (Profile)**: ${{ env.CLEAN_PROFILE }}
-            - **安全匹配品牌**: ${{ env.CLEAN_BRAND }}
+            - **安全匹配品牌**: ${{ env.CLEAN_BRAND != '' && env.CLEAN_BRAND || '未填写 (跳过校验)' }}
             - **固件版本**: ${{ env.VERSION }}
             - **默认 IP**: ${{ inputs.custom_router_ip }}
           files: |
