@@ -1,13 +1,13 @@
-name: immortalwrt-build-x86-64-Docker
+name: immortalwrt-build-x86-64-Docker-Deluxe
 
-on:
+于:
   workflow_dispatch:
     inputs:
       luci_version:
         description: "选择 ImmortalWrt 版本 (Auto 抓取最新稳定版/RC版)"
         required: false
-        default: "Auto"
-        type: choice
+        默认: "Auto"
+        输入: choice
         options:
           - 'Auto'
           - '24.10.5'
@@ -15,16 +15,16 @@ on:
       custom_router_ip:
         description: "设置路由器管理地址 (默认: 192.168.100.1)"
         required: true
-        default: "192.168.100.1"
+        默认: "192.168.100.1"
       rootfs_size:
         description: '编译固件 RootFS 分区大小 (单位: MB，建议 1024 以上)'
         required: true
-        default: '1024'
+        默认: '1024'
       include_docker:
         description: "集成 Docker 及网络互通环境"
         required: true
-        default: 'yes'
-        type: choice
+        默认: 'yes'
+        输入: choice
         options:
           - 'yes'
           - 'no'
