@@ -144,7 +144,8 @@ jobs:
           - 🌐 **上网方式**: $WAN_STATUS
           
           ## ⚙️ 核心固件特性
-          - 💾 **RootFS 分区大小**: \`${INPUT_ROOTFS} MB\`
+          - 🔒 **内核分区**: \`64 MB\` *(底层锁定，保障跨版本互刷不掉盘)*
+          - 💾 **RootFS 分区**: \`${INPUT_ROOTFS} MB\`
           - 🐳 **Docker 环境**: $DOCKER_STATUS
           - 🛡️ **科学插件**: 已预置 \`luci-app-openclash\` 及对应的 Meta 内核。
           
@@ -163,5 +164,6 @@ jobs:
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
+            ${{ github.workspace }}/bin/targets/x86/64/sha256sums
           token: ${{ secrets.GITHUB_TOKEN }}
           make_latest: true
