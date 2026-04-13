@@ -180,6 +180,15 @@ fi
 
 echo "最终构建包列表: $PACKAGES"
 
+echo ">>> 5.5 [满速破壁] 切换编译机临时源 <<<"
+if [ -f "repositories.conf" ]; then
+    # 强制将 GitHub 编译机的拉包通道切换至中科大镜像站，无视 Cloudflare 限速盾
+    sed -i 's/downloads.immortalwrt.org/mirrors.ustc.edu.cn\/immortalwrt/g' repositories.conf
+    # 强制降级为 HTTP 明文传输，省去 400 多次 TLS 证书握手加密的漫长耗时
+    sed -i 's/https:\/\//http:\/\//g' repositories.conf
+    echo "✅ 满速下载通道已就绪，准备 30 秒内秒杀 400+ 软件包！"
+fi
+
 echo ">>> 6. [极速原生] 开始 Make Image 打包 <<<"
 make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi-Deluxe" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
 
