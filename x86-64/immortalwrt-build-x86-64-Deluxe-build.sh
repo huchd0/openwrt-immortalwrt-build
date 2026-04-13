@@ -17,7 +17,6 @@ echo ">>> 1. 自定义固件底层参数 (专属 J4125 互刷防掉盘) <<<"
 {
     echo "CONFIG_TARGET_KERNEL_PARTSIZE=64"
     echo "CONFIG_TARGET_ROOTFS_PARTSIZE=$ROOTFS_SIZE"
-    # 极致优化：只生成 UEFI 的 squashfs 格式
     echo "CONFIG_TARGET_ROOTFS_EXT4FS=n"
     echo "CONFIG_TARGET_ROOTFS_TARGZ=n"
     echo "CONFIG_VMDK_IMAGES=n"
@@ -31,8 +30,8 @@ echo ">>> 1. 自定义固件底层参数 (专属 J4125 互刷防掉盘) <<<"
 echo ">>> 2. 准备初始化文件夹结构 <<<"
 mkdir -p files/root files/etc/uci-defaults files/etc/init.d files/usr/bin files/etc/openclash/core files/lib/firmware/mediatek/mt7925
 
-echo ">>> 3. [极限并发] 缓存提取与多线程下载组件 <<<"
-# 智能下载函数：有缓存直接秒拷，无缓存才走外网，并带超时保护
+echo ">>> 3. [极限并发] 缓存提取与多线程切片下载组件 <<<"
+# 智能下载：有缓存秒拷，无缓存动用 aria2 开启 4 线程多路并发防限速
 smart_dl() {
     local URL=$1
     local DEST=$2
@@ -42,8 +41,8 @@ smart_dl() {
         echo "⚡ [缓存命中] 极速复用: $(basename "$DEST")"
         cp "$CACHE_FILE" "$DEST"
     else
-        echo "⬇️ [全速下载] 未命中缓存: $(basename "$DEST")"
-        wget -qO "$DEST" --timeout=15 --tries=3 "$URL" || true
+        echo "⬇️ [Aria2 多线程下载] 未命中缓存: $(basename "$DEST")"
+        aria2c --console-log-level=error --summary-interval=0 -x 4 -s 4 -d "$(dirname "$DEST")" -o "$(basename "$DEST")" "$URL" || true
         [ -s "$DEST" ] && cp "$DEST" "$CACHE_FILE"
     fi
 }
@@ -56,19 +55,18 @@ OPENCLASH_URL=$(eval curl -s $GH_HEADER https://api.github.com/repos/vernesong/O
 ARGON_URL=$(eval curl -s $GH_HEADER https://api.github.com/repos/jerrykuku/luci-theme-argon/releases | grep -m 1 "browser_download_url.*\.apk" | cut -d '"' -f 4)
 
 echo "开启并发下载池..."
-# ======= 并发下载区块开始 =======
 ( [ -n "$OPENCLASH_URL" ] && smart_dl "$OPENCLASH_URL" files/root/luci-app-openclash.apk ) &
 ( [ -n "$ARGON_URL" ] && smart_dl "$ARGON_URL" files/root/luci-theme-argon.apk ) &
 ( smart_dl "https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-amd64-compatible.tar.gz" files/etc/openclash/core/meta.tar.gz ) &
-( smart_dl "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin" files/lib/firmware/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin ) &
-( smart_dl "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" files/lib/firmware/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin ) &
-( smart_dl "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin" files/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin ) &
 
-# 挂起主线程，等待所有并发任务瞬间完成！
+# 【优化】换用 kernel.org 纯净源避免 GitLab 抽风
+( smart_dl "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin" files/lib/firmware/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin ) &
+( smart_dl "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin" files/lib/firmware/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin ) &
+( smart_dl "https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/plain/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin" files/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin ) &
+
 wait
 echo "✅ 所有组件及底层驱动准备完毕！"
 
-# 处理 Meta 压缩包
 if [ -f files/etc/openclash/core/meta.tar.gz ]; then
     tar -zxf files/etc/openclash/core/meta.tar.gz -C files/etc/openclash/core/
     mv files/etc/openclash/core/clash files/etc/openclash/core/clash_meta
@@ -123,7 +121,7 @@ uci set system.@system[0].zonename='Asia/Shanghai'
 uci set system.@system[0].hostname='Tanxm'
 uci commit system
 
-# B. 智能网口与 WAN 口配置 (动态 PPPoE 逻辑)
+# B. 智能网口与 WAN 口配置
 INTERFACES=\$(ls /sys/class/net | grep -E '^eth[0-9]+' | sort)
 PORT_COUNT=\$(echo "\$INTERFACES" | wc -w)
 
@@ -137,7 +135,6 @@ else
             uci set network.wan='interface'
             uci set network.wan.device='eth0'
             
-            # --- 🚀 自动判定 PPPoE 还是 DHCP ---
             if [ -n "$PPPOE_ACCOUNT" ] && [ -n "$PPPOE_PASSWORD" ]; then
                 uci set network.wan.proto='pppoe'
                 uci set network.wan.username="$PPPOE_ACCOUNT"
@@ -156,7 +153,7 @@ else
 fi
 uci commit network
 
-# C. 强制挂载大分区 (sda3)
+# C. 强制挂载大分区
 if ! lsblk | grep -q sda3; then
     echo -e "w" | fdisk /dev/sda >/dev/null 2>&1
     echo -e "n\n3\n\n\nw" | fdisk /dev/sda >/dev/null 2>&1
@@ -179,13 +176,11 @@ fi
 
 # D. Docker 自动化网络与防火墙配置
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
-    # 自动重定向 Docker 数据根目录到大分区
     if [ -d "/mnt/sda3/" ]; then
         uci set dockerd.globals.data_root='/mnt/sda3/docker'
         uci commit dockerd
     fi
     
-    # 注入 Docker 防火墙放行规则 (解决容器无网问题)
     if ! uci get firewall.docker >/dev/null 2>&1; then
         uci add firewall zone
         uci set firewall.@zone[-1].name='docker'
@@ -205,11 +200,9 @@ if [ "$INCLUDE_DOCKER" = "yes" ]; then
     fi
 fi
 
-# E. 计划任务写入
 echo "0 2 */2 * * /usr/bin/upg" >> /etc/crontabs/root
 /etc/init.d/cron restart 2>/dev/null || true
 
-# F. 离线环境第三方插件动态安装
 if [ -d "/etc/apk/repositories.d" ]; then
     sed -i 's/downloads.openwrt.org/mirrors.ustc.edu.cn\/openwrt/g' /etc/apk/repositories.d/*.list
 fi
@@ -246,12 +239,14 @@ RAW_PACKAGES="
     block-mount blkid lsblk parted fdisk e2fsprogs kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat kmod-fs-exfat
     coreutils-nohup coreutils-base64 coreutils-sort bash jq curl ca-bundle libcap libcap-bin ruby ruby-yaml unzip
     ip-full iptables-mod-tproxy iptables-mod-extra kmod-tun kmod-inet-diag kmod-nft-tproxy kmod-igc kmod-igb kmod-r8169 iwinfo
-    -wpad-basic-mbedtls -wpad-basic-wolfssl wpad-openssl kmod-mt7925e kmod-mt7925-firmware kmod-btusb bluez-daemon kmod-input-uinput
+    
+    # 【核心减负】去掉了巨无霸 bluez-daemon 及其引发的 dbus 等 400+ 桌面级依赖，只保留核心硬件驱动
+    -wpad-basic-mbedtls -wpad-basic-wolfssl wpad-openssl kmod-mt7925e kmod-mt7925-firmware kmod-btusb
+    
     nano htop ethtool tcpdump mtr conntrack iftop screen collectd-mod-thermal collectd-mod-sensors collectd-mod-cpu collectd-mod-ping collectd-mod-interface collectd-mod-rrdtool collectd-mod-iwinfo
     luci-app-ksmbd luci-i18n-ksmbd-zh-cn luci-app-nlbwmon luci-i18n-nlbwmon-zh-cn luci-app-statistics luci-i18n-statistics-zh-cn
 "
 
-# 如果用户选择了集成 Docker，动态混入 Docker 专属包
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
     RAW_PACKAGES="$RAW_PACKAGES dockerd docker-compose kmod-veth kmod-macvlan kmod-dummy luci-app-dockerman luci-i18n-dockerman-zh-cn"
     echo "🐳 已激活 Docker 组件及相关网络内核支持"
@@ -259,12 +254,17 @@ fi
 
 PACKAGES=$(echo "$RAW_PACKAGES" | sed 's/#.*//g' | tr -s ' \n' ' ')
 
+echo ">>> 6.5 [终极修复] 劫持并替换 ImageBuilder 软件源 (彻底绕过 Cloudflare 阻断) <<<"
+if [ -f "repositories.conf" ]; then
+    # 将源强行切换至清华大学 TUNA 镜像站，对 GitHub 的数据中心 IP 完全放行无脑满速
+    sed -i 's/downloads.immortalwrt.org/mirror.tuna.tsinghua.edu.cn\/immortalwrt/g' repositories.conf
+    echo "✅ 已成功劫持软件源至清华 TUNA 镜像站，防 D 墙已突破！"
+fi
+
 echo ">>> 7. [多核极速] 开始 Make Image 打包 <<<"
-# 开启所有核心并行处理，ImageBuilder 内置机制自动生效
 make image -j$(nproc) PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi-Deluxe" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
 
 echo ">>> 8. 剔除多余格式，确保仅输出 combined-efi <<<"
-# 强制删除无用的 rootfs 等文件，只给后续上传环节留一个干净的镜像
 find bin/targets/x86/64/ -type f -not -name "*combined-efi*.img.gz" -not -name "*sha256sums" -delete
 
 echo ">>> 全部任务以极限速度构建完毕！ <<<"
