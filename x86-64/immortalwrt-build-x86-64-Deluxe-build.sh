@@ -253,7 +253,7 @@ RAW_PACKAGES="
 
 # 如果用户选择了集成 Docker，动态混入 Docker 专属包
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
-    RAW_PACKAGES="$RAW_PACKAGES dockerd docker-compose dockerd-rootless kmod-veth kmod-macvlan kmod-dummy luci-app-dockerman luci-i18n-dockerman-zh-cn"
+    RAW_PACKAGES="$RAW_PACKAGES dockerd docker-compose kmod-veth kmod-macvlan kmod-dummy luci-app-dockerman luci-i18n-dockerman-zh-cn"
     echo "🐳 已激活 Docker 组件及相关网络内核支持"
 fi
 
