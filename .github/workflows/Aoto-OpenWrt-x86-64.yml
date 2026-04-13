@@ -3,6 +3,7 @@ name: Aoto-OpenWrt-x86_64-智能自动编译发布
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   MANAGEMENT_IP: '192.168.100.1' # 全局后台地址配置
+  ROOTFS_SIZE: '1024' # 🌟 在这里统一设置 RootFS 大小，方便全局调用
 
 on:
   workflow_dispatch:
@@ -73,8 +74,6 @@ jobs:
 
       - name: 运行编译脚本
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
-        env:
-          ROOTFS_SIZE: '1024'
         run: |
           # 🌟 核心防护：抹除 Windows 换行符
           sed -i 's/\r$//' OpenWrt-x86-64-build.sh
@@ -123,7 +122,8 @@ jobs:
           body: |
             **🤖 OpenWrt 最新定制化固件自动更新**
             - **版本**: `${{ env.OWRT_VERSION }}`
-            - **打包体积**: `${{ env.FIRMWARE_SIZE }}` (含 Docker 预留 ${ROOTFS_SIZE:-1024}MB 空间配置)
+            - **固件体积**: `${{ env.FIRMWARE_SIZE }}`
+            - **分区配置**: Kernel: `64MB` | RootFS: `${{ env.ROOTFS_SIZE }}MB`
             - **构建时间**: `${{ env.BUILD_TIME }}`
             - **管理 IP**: `${{ env.MANAGEMENT_IP }}`
             - **硬盘挂载**: 智能抓取 sda3 或 nvme0n1p3 动态绑定
