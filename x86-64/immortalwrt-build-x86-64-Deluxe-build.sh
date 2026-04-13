@@ -17,11 +17,11 @@ echo ">>> 1. 固件底层参数配置 <<<"
 echo ">>> 2. 准备组件目录 <<<"
 mkdir -p files/etc/uci-defaults files/etc/init.d files/etc/openclash/core
 
-# 预载 OpenClash Meta 内核 (直连下载，很快)
+# 预载 OpenClash Meta 内核 (直连下载)
 wget -qO- "https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-amd64-compatible.tar.gz" | tar xOvz > files/etc/openclash/core/clash_meta
 chmod +x files/etc/openclash/core/clash_meta
 
-echo ">>> 3. 创建开机后台安装脚本 <<<"
+echo ">>> 3. 创建开机后台增量安装脚本 <<<"
 cat << 'EOF' > files/etc/auto_install.sh
 #!/bin/sh
 check_net() { ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; }
@@ -69,23 +69,25 @@ rm -f /etc/uci-defaults/99-custom-setup
 exit 0
 EOF
 
-echo ">>> 5. 软件列表 (极简直连) <<<"
-# 排除掉所有没用的 kmod 驱动，大幅减少依赖计算量
+echo ">>> 5. 软件列表 (极简基础版) <<<"
+# 排除所有多余 kmod 驱动，减轻依赖计算负担
 PACKAGES="base-files libc libgcc apk-openssl block-mount fdisk e2fsprogs kmod-fs-ext4 \
 bash curl jq htop luci-theme-argon luci-i18n-package-manager-zh-cn luci-i18n-ttyd-zh-cn \
 luci-i18n-base-zh-cn luci-i18n-firewall-zh-cn luci-i18n-samba4-zh-cn \
 kmod-igc kmod-r8125 kmod-r8169 -kmod-amazon-ena -kmod-bnx2 -kmod-i40e -kmod-ixgbe -kmod-tg3 -kmod-vmxnet3"
 
-# --- 🚀 核心加速：物理删除法 (解决 1分40秒 卡顿的关键) ---
-if [ -d "bin/packages/x86_64/base" ]; then
-    echo ">>> 5.5 物理清除冗余包文件，强制压缩索引时间 <<<"
-    cd bin/packages/x86_64/base/
-    # 删除所有 kmod 包，但保留必需的网卡和文件系统驱动
+# --- 🚨 暴力核心：物理删除冗余包文件，让索引秒开 🚨 ---
+# ImageBuilder 默认带了 3000 多个包，这是卡住 120 秒的根本原因
+BASE_PKG_DIR="bin/packages/x86_64/base"
+if [ -d "$BASE_PKG_DIR" ]; then
+    echo ">>> 5.5 [物理清场] 正在删除冗余驱动包以加速索引..."
+    cd "$BASE_PKG_DIR"
+    # 物理删除所有 kmod 包，但保留你 J4125 必需的驱动
     find . -name "kmod-*" ! -name "*igc*" ! -name "*r8125*" ! -name "*r8169*" ! -name "*fs-ext4*" -delete 2>/dev/null || true
     cd ../../../..
 fi
 
-# 提速配置
+# 提速配置 (HTTP 降级避开握手风暴)
 if [ -f "repositories.conf" ]; then
     sed -i 's/https:\/\//http:\/\//g' repositories.conf
     echo "104.21.75.148 downloads.immortalwrt.org" >> /etc/hosts
