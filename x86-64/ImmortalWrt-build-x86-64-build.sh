@@ -204,9 +204,23 @@ ALL_PKGS=(
 PACKAGES="${ALL_PKGS[*]}"
 
 # ==========================================
-# 7. 开始打包
+# 6.5 终极加速：替换 ImageBuilder 构建源为腾讯云全球镜像
+# ==========================================
+echo ">>> 正在优化 ImageBuilder 底层构建源，加速云端拉取..."
+
+# 针对 23.05 及以下版本 (opkg)
+if [ -f "repositories.conf" ]; then
+    sed -i 's/downloads.immortalwrt.org/mirrors.cloud.tencent.com\/immortalwrt/g' repositories.conf
+fi
+
+# 针对 24.10 及以上版本 (apk)
+if [ -d "repositories.d" ]; then
+    sed -i 's/downloads.immortalwrt.org/mirrors.cloud.tencent.com\/immortalwrt/g' repositories.d/*.list
+fi
+
+
+# ==========================================
+# 7. 开始打包 (原有的代码保持不变)
 # ==========================================
 echo ">>> 正在执行 Make Image 编译..."
 make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi"
-
-echo "========== 固件构建圆满完成 =========="
