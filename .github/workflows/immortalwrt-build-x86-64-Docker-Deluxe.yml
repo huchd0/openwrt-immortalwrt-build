@@ -111,20 +111,21 @@ jobs:
         run: |
           echo "🚀 开始基于 ${{ env.FINAL_VERSION }} 构建，RootFS 大小: ${INPUT_ROOTFS}MB"
           
+          # 【终极修复】将宿主机目录精准映射到 ImageBuilder 的原生工作目录 /builder
           docker run --rm -i \
             --user root \
-            -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
-            -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
-            -v "${{ github.workspace }}/shell:/home/build/immortalwrt/shell" \
-            -v "${{ github.workspace }}/dl_cache:/home/build/immortalwrt/dl_cache" \
-            -v "${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe-build.sh:/home/build/immortalwrt/build.sh" \
-            -e DL_CACHE_DIR="/home/build/immortalwrt/dl_cache" \
+            -v "${{ github.workspace }}/bin:/builder/bin" \
+            -v "${{ github.workspace }}/files:/builder/files" \
+            -v "${{ github.workspace }}/shell:/builder/shell" \
+            -v "${{ github.workspace }}/dl_cache:/builder/dl_cache" \
+            -v "${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe-build.sh:/builder/build.sh" \
+            -e DL_CACHE_DIR="/builder/dl_cache" \
             -e GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
             -e ROOTFS_SIZE="$INPUT_ROOTFS" \
             -e INCLUDE_DOCKER="$INPUT_DOCKER" \
             -e PPPOE_ACCOUNT="$INPUT_PPPOE_ACC" \
             -e PPPOE_PASSWORD="$INPUT_PPPOE_PWD" \
-            immortalwrt/imagebuilder:x86-64-openwrt-${{ env.FINAL_VERSION }} /bin/bash /home/build/immortalwrt/build.sh
+            immortalwrt/imagebuilder:x86-64-openwrt-${{ env.FINAL_VERSION }} /bin/bash /builder/build.sh
           
       - name: Generate Smart Release Notes
         run: |
