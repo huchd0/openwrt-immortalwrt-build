@@ -484,9 +484,11 @@ ALL_PKGS=(
 PACKAGES="${ALL_PKGS[*]}"
 
 echo "=== 6. 开始 Make Image 打包 ==="
-make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
+# 【修改点 1】把 EXTRA_IMAGE_NAME="efi" 改成了 "efi-Deluxe"
+make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi-Deluxe" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
 
 echo "=== 7. 提取固件 ==="
 mkdir -p output-firmware
-cp bin/targets/x86/64/*combined-efi.img.gz output-firmware/ 2>/dev/null || true
+# 拷贝固件时的匹配名字也加上 -Deluxe
+cp bin/targets/x86/64/*combined-efi-Deluxe.img.gz output-firmware/ 2>/dev/null || true
 echo "=== 全部构建任务已圆满完成！ ==="
