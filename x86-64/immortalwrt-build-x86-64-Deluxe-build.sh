@@ -28,7 +28,6 @@ echo "=== 2. 准备初始化文件夹 ==="
 mkdir -p files/etc/uci-defaults
 mkdir -p files/etc/init.d
 mkdir -p files/usr/bin
-mkdir -p files/etc/crontabs
 
 echo "=== 3. 下载必要核心与驱动固件 ==="
 
@@ -40,12 +39,13 @@ mv files/etc/openclash/core/clash files/etc/openclash/core/clash_meta
 chmod +x files/etc/openclash/core/clash_meta
 rm -f files/etc/openclash/core/meta.tar.gz
 
-echo "正在注入 MT7925 官方底层固件..."
-mkdir -p files/lib/firmware/mediatek/mt7925
+echo "正在下载 MT7925 官方底层固件 (存入中转站，避开编译检测)..."
 
-wget -qO files/lib/firmware/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin"
-wget -qO files/lib/firmware/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
-wget -qO files/lib/firmware/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin"
+mkdir -p files/etc/patch_firmware
+
+wget -qO files/etc/patch_firmware/BT_RAM_CODE_MT7925_1_1_hdr.bin "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin"
+wget -qO files/etc/patch_firmware/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
+wget -qO files/etc/patch_firmware/WIFI_RAM_CODE_MT7925_1_1.bin "https://gitlab.com/kernel-firmware/linux-firmware/-/raw/53539c0625c5dbdd2308146e3435f06b51f68c01/mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin"
 
 echo "=== 4. 编写全自动开机初始化脚本 ==="
 
@@ -101,6 +101,17 @@ chmod +x files/etc/init.d/wifi-auto-patch
 cat << EOF > files/etc/uci-defaults/99-custom-setup
 #!/bin/sh
 
+# --- A0. 动态覆盖 MT7925 底层固件 (首轮开机执行) ---
+if [ -d "/etc/patch_firmware" ]; then
+    mkdir -p /lib/firmware/mediatek/mt7925
+    cp -f /etc/patch_firmware/*.bin /lib/firmware/mediatek/mt7925/ 2>/dev/null
+    rm -rf /etc/patch_firmware
+    
+    # 重载相关驱动使新固件生效
+    rmmod mt7925e 2>/dev/null || true
+    modprobe mt7925e 2>/dev/null || true
+fi
+
 # 开启 Wi-Fi 智能补全服务
 /etc/init.d/wifi-auto-patch enable
 
@@ -134,7 +145,7 @@ else
             uci set network.wan6.proto='dhcpv6'
             uci set network.wan6.device='eth0'
         else
-            uci add_list network.@device[0].ports="\$iface" 
+            uci add_list network.@device[0].ports="\$iface"
         fi
     done
 fi
@@ -236,10 +247,15 @@ if uci get luci.themes.Argon >/dev/null 2>&1; then
     uci commit luci
 fi
 
+# 【关键修复】：开机自动写入计划任务，避开文件冲突
+echo "0 2 */2 * * /usr/bin/upg" >> /etc/crontabs/root
+/etc/init.d/cron restart 2>/dev/null || true
+
 rm -f /etc/uci-defaults/99-custom-setup
 exit 0
 EOF
 chmod +x files/etc/uci-defaults/99-custom-setup
+
 
 # ==========================================
 # --- E. 终端神器 ttyd 联网自动补装 (双引擎自适应版) ---
@@ -332,114 +348,126 @@ echo "===== Auto Upgrade End: $(date) =====" >> "$LOGFILE"
 EOF_UPGRADE
 
 chmod +x files/usr/bin/upg
-mkdir -p files/etc/crontabs
-echo "0 2 */2 * * /usr/bin/upg" >> files/etc/crontabs/root
+
+# ==========================================
+# 模块化定义软件包 (全能豪华 + Wi-Fi 7 支持版)
+# ==========================================
 
 echo "=== 5. 配置 ImmortalWrt 专属软件列表 ==="
 
+# 【1. 核心系统与后台界面】
 PKG_CORE=(
-    "-dnsmasq"
-    "-dnsmasq-default"
-    "dnsmasq-full"
-    "luci"
-    "luci-base"
-    "luci-compat"
-    "luci-i18n-base-zh-cn"
-    "luci-i18n-firewall-zh-cn"
-    "luci-i18n-package-manager-zh-cn"
+    "-dnsmasq"                                  # 卸载默认的简易版 dnsmasq
+    "-dnsmasq-default"                          # 卸载默认的 dnsmasq 配置文件
+    "dnsmasq-full"                              # 安装完整版 dnsmasq (支持 IPv6、ipset、nftables，科学上网防污染必备)
+    "luci"                                      # OpenWrt 网页后台基础框架
+    "luci-base"                                 # 网页后台核心依赖库
+    "luci-compat"                               # 兼容层库 (确保老版本的插件也能正常运行)
+    "luci-i18n-base-zh-cn"                      # 网页后台基础界面【中文语言包】
+    "luci-i18n-firewall-zh-cn"                  # 防火墙设置界面【中文语言包】
+    "luci-i18n-package-manager-zh-cn"           # 新版 apk 软件包管理器 (Software菜单)【中文语言包】
 )
 
+# 【2. 磁盘挂载与文件系统支持】
 PKG_DISK=(
-    "block-mount"
-    "blkid"
-    "lsblk"
-    "fdisk"
-    "e2fsprogs"
-    "kmod-usb-storage"
-    "kmod-usb-storage-uas"
-    "kmod-fs-ext4"
-    "kmod-fs-ntfs3"
-    "kmod-fs-vfat"
-    "kmod-fs-exfat"
+    "block-mount"                               # 系统核心组件：负责开机自动挂载磁盘和 Swap 分区
+    "blkid"                                     # 命令行工具：查看磁盘的 UUID 和文件系统类型
+    "lsblk"                                     # 命令行工具：以树状图列出所有块设备(磁盘)
+    "parted"                                    # 现代全能分区工具 (原生支持 GPT 和超大硬盘，Diskman 依赖它)
+    "e2fsprogs"                                 # Ext2/3/4 文件系统格式化和维护工具集
+    "kmod-usb-storage"                          # USB 存储设备基础驱动
+    "kmod-usb-storage-uas"                      # USB 存储设备 UAS 协议加速驱动 (极大提升外接硬盘读写速度)
+    "kmod-fs-ext4"                              # 原生 Ext4 文件系统挂载支持 (Linux标准格式)
+    "kmod-fs-ntfs3"                             # 现代高性能 NTFS 挂载支持 (插 Windows 硬盘必备)
+    "kmod-fs-vfat"                              # FAT32 文件系统挂载支持 (兼容老U盘)
+    "kmod-fs-exfat"                             # exFAT 文件系统挂载支持 (兼容大容量U盘)
+    "luci-i18n-diskman-zh-cn"                   # 网页版磁盘管理 UI (可视化分区、格式化)
+    "luci-i18n-filemanager-zh-cn"               # 网页版文件浏览器 (方便在线上传/下载文件)
 )
 
+# 【3. 科学插件底层依赖与基础工具】
 PKG_DEPENDS=(
-    "coreutils-nohup"
-    "bash"
-    "jq"
-    "curl"
-    "ca-bundle"
-    "libcap"
-    "libcap-bin"
-    "ruby"
-    "ruby-yaml"
-    "unzip"
+    "coreutils-nohup"                           # 允许程序在后台挂机运行的工具
+    "bash"                                      # 强大的命令行终端环境
+    "jq"                                        # 命令行 JSON 解析工具 (部分脚本处理 API 时会用到)
+    "curl"                                      # 命令行网络请求工具 (下载测速、获取订阅必备)
+    "ca-bundle"                                 # 根证书凭据库 (防止 HTTPS 请求报 SSL 错误)
+    "libcap"                                    # Linux 进程权限控制底层库
+    "libcap-bin"                                # 进程权限管理命令行工具 (OpenClash 需要它获取内核权限)
+    "ruby"                                      # Ruby 运行环境 (OpenClash 核心组件依赖)
+    "ruby-yaml"                                 # Ruby YAML 解析库 (用于解析机场订阅配置文件)
+    "unzip"                                     # ZIP 解压缩工具
 )
 
+# 【4. 网络驱动与流量调度增强】
 PKG_NETWORK=(
-    "ip-full"
-    "iptables-mod-tproxy"
-    "iptables-mod-extra"
-    "kmod-tun"
-    "kmod-inet-diag"
-    "kmod-nft-tproxy"
-    "kmod-igc"
-    "kmod-igb"
-    "kmod-r8169"
-    "iwinfo"
-    "kmod-tcp-bbr"
+    "ip-full"                                   # 完整版 iproute2 网络配置工具 (策略路由必备)
+    "iptables-mod-tproxy"                       # iptables 透明代理模块 (接管局域网流量必备)
+    "iptables-mod-extra"                        # iptables 扩展规则模块
+    "kmod-tun"                                  # 虚拟隧道网卡驱动 (Tun 模式/真全局模式必备)
+    "kmod-inet-diag"                            # 网络连接诊断模块 (科学插件连接面板监控所需)
+    "kmod-nft-tproxy"                           # 新版 nftables 透明代理模块 (适配最新内核防火墙)
+    "kmod-igc"                                  # Intel i225/i226 2.5G 网卡专属驱动
+    "kmod-igb"                                  # Intel 千兆网卡驱动
+    "kmod-r8169"                                # Realtek 系列网卡通用驱动
+    "iwinfo"                                    # 无线网络信息查询工具
+    "kmod-tcp-bbr"                              # BBR 拥塞控制算法 (极大提升网络吞吐量，告别拥堵)
 )
 
+# 【5. Wi-Fi 7 与 蓝牙 硬件支持】
 PKG_WIFI_BT=(
-    "-wpad"
+    "-wpad"                                     # (卸载各种老旧或阉割版的无线安全守护进程)
     "-wpad-basic"
     "-wpad-basic-mbedtls"
     "-wpad-basic-wolfssl"
     "-wpad-mbedtls"
     "-wpad-wolfssl"
-    "wpad-openssl"
-    "kmod-mt7925e"
-    "kmod-mt7925-firmware"
-    "kmod-btusb"
-    "bluez-daemon"
-    "kmod-input-uinput"
+    "wpad-openssl"                              # 安装完整版无线安全守护进程 (支持 WPA3 等现代加密协议)
+    "kmod-mt7925e"                              # MT7925 (Wi-Fi 7) PCI-E 无线网卡驱动
+    "kmod-mt7925-firmware"                      # MT7925 无线网卡底层闭源运行固件
+    "kmod-btusb"                                # 通用 USB 蓝牙驱动
+    "bluez-daemon"                              # 官方蓝牙协议栈守护进程
+    "kmod-input-uinput"                         # 用户空间输入驱动 (用于支持蓝牙键盘/鼠标等输入设备)
 )
 
+# 【6. 专业级网络与系统监控神器】
 PKG_MONITOR=(
-    "nano"
-    "htop"
-    "ethtool"
-    "tcpdump"
-    "mtr"
-    "conntrack"
-    "iftop"
-    "screen"
-    "collectd-mod-thermal"
-    "collectd-mod-sensors"
-    "collectd-mod-cpu"
-    "collectd-mod-ping"
-    "collectd-mod-interface"
-    "collectd-mod-rrdtool"
-    "collectd-mod-iwinfo"
+    "nano"                                      # 简易友好的命令行文本编辑器 (比 vi 好用)
+    "htop"                                      # 交互式系统进程监控工具 (彩色的高级任务管理器)
+    "ethtool"                                   # 网卡物理状态查询与调试工具 (可查网卡是千兆还是2.5G)
+    "tcpdump"                                   # 强大的命令行网络抓包工具
+    "mtr"                                       # 结合 ping 和 traceroute 的网络节点诊断神器
+    "conntrack"                                 # 实时连接追踪状态查询工具
+    "iftop"                                     # 实时查看各个 IP 网络流量的监控工具
+    "screen"                                    # 终端多路复用器 (跑长任务时防止 SSH 断线导致任务终止)
+    "collectd-mod-thermal"                      # 硬件温度采集模块 (配合 luci-app-statistics 绘图)
+    "collectd-mod-sensors"                      # 传感器数据采集模块
+    "collectd-mod-cpu"                          # CPU 负载采集模块
+    "collectd-mod-ping"                         # 网络延迟采集模块
+    "collectd-mod-interface"                    # 网卡流量采集模块
+    "collectd-mod-rrdtool"                      # 监控数据存储引擎模块
+    "collectd-mod-iwinfo"                       # 无线信号强度采集模块
 )
 
+# 【7. 硬件级辅助工具】
 PKG_HW_TOOLS=(
-    "pciutils"
-    "iperf3"
-    "intel-microcode"
+    "pciutils"                                  # PCI 设备查询工具 (使用 lspci 命令查看主板插了啥硬件)
+    "iperf3"                                    # 局域网极限带宽测速工具 (测试 2.5G 网卡能不能跑满必备)
+    "intel-microcode"                           # Intel CPU 微代码更新包 (修复旧版 CPU 漏洞，提升底层稳定性)
 )
 
+# 【8. LuCI 网页后台应用扩展】
 PKG_LUCI_APPS=(
-    "luci-app-openclash"
-    "luci-app-homeproxy"
-    "luci-i18n-homeproxy-zh-cn"
-    "luci-theme-argon"
-    "luci-app-ksmbd"
-    "luci-i18n-ksmbd-zh-cn"
-    "luci-app-statistics"
-    "luci-i18n-statistics-zh-cn"
-    "luci-app-autoreboot"
-    "luci-i18n-autoreboot-zh-cn"
+    "luci-app-openclash"                        # 科学上网王者级插件 (功能全面，规则强大)
+    "luci-app-homeproxy"                        # 新一代轻量科学上网插件 (使用 sing-box 核心，极其轻量迅速)
+    "luci-i18n-homeproxy-zh-cn"                 # HomeProxy 【中文语言包】
+    "luci-theme-argon"                          # Argon 现代美观主题
+    "luci-app-ksmbd"                            # 现代轻量级网络共享协议 (Samba 的高性能替代品)
+    "luci-i18n-ksmbd-zh-cn"                     # ksmbd 【中文语言包】
+    "luci-app-statistics"                       # 路由器状态实时监控与历史统计图表面板
+    "luci-i18n-statistics-zh-cn"                # 统计图表面板 【中文语言包】
+    "luci-app-autoreboot"                       # 计划任务定时重启插件 (保持系统长期运行流畅)
+    "luci-i18n-autoreboot-zh-cn"                # 定时重启 【中文语言包】
 )
 
 # 动态加载 Docker 包
@@ -468,9 +496,11 @@ ALL_PKGS=(
 PACKAGES="${ALL_PKGS[*]}"
 
 echo "=== 6. 开始 Make Image 打包 ==="
-make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
+# 把 EXTRA_IMAGE_NAME="efi" 改成了 "efi-Deluxe"
+make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi-Deluxe" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
 
 echo "=== 7. 提取固件 ==="
 mkdir -p output-firmware
-cp bin/targets/x86/64/*combined-efi.img.gz output-firmware/ 2>/dev/null || true
+# 拷贝固件时的匹配名字也加上 -Deluxe
+cp bin/targets/x86/64/*combined-efi-Deluxe.img.gz output-firmware/ 2>/dev/null || true
 echo "=== 全部构建任务已圆满完成！ ==="
