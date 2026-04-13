@@ -52,6 +52,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4.2.2
 
+      # ⚡ [优化项 1]: 提前建立外网资源缓存目录
+      - name: Prepare Download Cache Directory
+        run: mkdir -p ${{ github.workspace }}/dl_cache
+
+      # ⚡ [优化项 2]: 挂载 GitHub Actions 缓存 (双层缓存架构的核心)
+      - name: Cache Download Pool (dl_cache)
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/dl_cache
+          # 基于构建脚本的哈希值和运行ID生成智能缓存键
+          key: dl-cache-${{ hashFiles('x86-64/immortalwrt-build-x86-64-Deluxe-build.sh') }}-${{ github.run_id }}
+          restore-keys: |
+            dl-cache-${{ hashFiles('x86-64/immortalwrt-build-x86-64-Deluxe-build.sh') }}-
+            dl-cache-
+
       - name: Set executable permissions
         run: |
           sed -i 's/\r$//' ${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe-build.sh
@@ -100,12 +115,16 @@ jobs:
         run: |
           echo "🚀 开始基于 ${{ env.FINAL_VERSION }} 构建，RootFS 大小: ${INPUT_ROOTFS}MB"
           
+          # ⚡ [优化项 3]: 将缓存目录和 GITHUB_TOKEN 穿透映射到 Docker 容器内
           docker run --rm -i \
             --user root \
             -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
             -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
             -v "${{ github.workspace }}/shell:/home/build/immortalwrt/shell" \
+            -v "${{ github.workspace }}/dl_cache:/home/build/immortalwrt/dl_cache" \
             -v "${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe-build.sh:/home/build/immortalwrt/build.sh" \
+            -e DL_CACHE_DIR="/home/build/immortalwrt/dl_cache" \
+            -e GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
             -e ROOTFS_SIZE="$INPUT_ROOTFS" \
             -e INCLUDE_DOCKER="$INPUT_DOCKER" \
             -e PPPOE_ACCOUNT="$INPUT_PPPOE_ACC" \
@@ -165,7 +184,7 @@ jobs:
           name: ImmortalWrt ${{ env.FINAL_VERSION }}-Deluxe (${{ env.INPUT_IP }})
           body_path: ${{ github.workspace }}/router-info.md
           files: |
-            ${{ github.workspace }}/bin/targets/x86/64/*.img.gz
+            ${{ github.workspace }}/bin/targets/x86/64/*combined-efi*.img.gz
             ${{ github.workspace }}/bin/targets/x86/64/*sha256sums
           token: ${{ secrets.GITHUB_TOKEN }}
           make_latest: true
