@@ -150,11 +150,11 @@ PACKAGES="$PACKAGES luci-i18n-diskman-zh-cn block-mount fdisk parted lsblk e2fsp
 # 命令行工具 (含指定的 script-utils)
 PACKAGES="$PACKAGES bash curl jq unzip nano htop tcpdump mtr iwinfo script-utils"
 # 主题外观
-PACKAGES="$PACKAGES luci-theme-argon luci-app-argon-config"
+PACKAGES="$PACKAGES luci-theme-argon"
 # 核心网络插件
 PACKAGES="$PACKAGES luci-app-openclash luci-i18n-homeproxy-zh-cn luci-i18n-ddns-go-zh-cn"
 # 文件共享与传输管理
-PACKAGES="$PACKAGES luci-i18n-filemanager-zh-cn luci-app-ksmbd openssh-sftp-server"
+PACKAGES="$PACKAGES luci-i18n-filemanager-zh-cn luci-app-ksmbd luci-i18n-ksmbd-zh-cn openssh-sftp-server"
 # 硬件驱动 (MT7925)
 PACKAGES="$PACKAGES kmod-mt7925e wpad-openssl kmod-btusb bluez-daemon kmod-input-uinput kmod-mt7925-firmware"
 
