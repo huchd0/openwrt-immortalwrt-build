@@ -62,5 +62,5 @@ jobs:
           INPUT_MODEL: ${{ inputs.model }}
         run: |
           # 赋予后台脚本执行权限并启动
-          chmod +x .github/scripts/query_engine.sh
-          .github/scripts/query_engine.sh
+          chmod +x .github/scripts/OP_Arch_Profile_Radar.sh
+          .github/scripts/OP_Arch_Profile_Radar.sh
