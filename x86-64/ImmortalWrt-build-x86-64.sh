@@ -60,15 +60,16 @@ uci commit system
 # A. 基础 LAN 桥接与 IP 设置 (动态获取外部传入的IP)
 uci set network.lan.ipaddr="$MANAGEMENT_IP"
 uci set network.lan.netmask='255.255.255.0'
-
-# 安全地创建 br-lan 桥接设备
-uci set network.device_lan='device'
-uci set network.device_lan.name='br-lan'
-uci set network.device_lan.type='bridge'
-uci delete network.device_lan.ports 2>/dev/null
-
 uci set network.lan.device='br-lan'
 uci delete network.lan.type 2>/dev/null
+
+# 【核心修复】：彻底清除官方默认生成的物理网口绑定(防止系统默认把 eth0 绑在 LAN 导致冲突)
+while uci -q delete network.@device[0]; do :; done
+
+# 安全地创建属于我们的 br-lan 桥接设备
+uci set network.br_lan='device'
+uci set network.br_lan.name='br-lan'
+uci set network.br_lan.type='bridge'
 
 # B. 智能网口分配 (解决 eth0 冲突)
 INTERFACES=\$(ls /sys/class/net | grep -E '^eth[0-9]+' | sort)
@@ -76,7 +77,7 @@ PORT_COUNT=\$(echo "\$INTERFACES" | wc -w)
 
 if [ "\$PORT_COUNT" -eq 1 ]; then
     # 单网口：只有 eth0，作为 LAN
-    uci add_list network.device_lan.ports='eth0'
+    uci add_list network.br_lan.ports='eth0'
     uci delete network.wan 2>/dev/null
     uci delete network.wan6 2>/dev/null
 else
@@ -102,7 +103,7 @@ else
             uci set network.wan6.device='eth0'
         else
             # 将多余的网口（eth1, eth2...）加入 LAN 桥接
-            uci add_list network.device_lan.ports="\$iface" 
+            uci add_list network.br_lan.ports="\$iface" 
         fi
     done
 fi
