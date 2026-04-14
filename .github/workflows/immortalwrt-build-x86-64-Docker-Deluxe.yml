@@ -165,7 +165,7 @@ jobs:
           name: ImmortalWrt ${{ env.FINAL_VERSION }}-Deluxe (${{ env.INPUT_IP }})
           body_path: ${{ github.workspace }}/router-info.md
           files: |
-            ${{ github.workspace }}/bin/targets/x86/64/*efi-Deluxe*.img.gz
+            ${{ github.workspace }}/bin/targets/x86/64/*-Deluxe.img.gz
             ${{ github.workspace }}/bin/targets/x86/64/*sha256sums
           token: ${{ secrets.GITHUB_TOKEN }}
           make_latest: true
