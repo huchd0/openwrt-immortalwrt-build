@@ -154,10 +154,10 @@ jobs:
           files: imagebuilder/output-firmware/*
           body: |
             **🤖 OpenWrt 最新定制化固件自动更新**
-            - **版本**: `${{ env.OWRT_VERSION }}`
-            - **固件体积**: `${{ env.FIRMWARE_SIZE }}`
-            - **分区配置**: Kernel: `64MB` | RootFS: `${{ env.ROOTFS_SIZE }}MB`
             - **构建时间**: `${{ env.BUILD_TIME }}`
-            - **管理 IP**: `${{ env.MANAGEMENT_IP }}`
+            - **版    本**: `${{ env.OWRT_VERSION }}`
+            - **管 理 IP**: `${{ env.MANAGEMENT_IP }}`
+            - **核    心**: 已内置 OpenClash Meta 核心与 Argon 主题
+            - **分区配置**: Kernel: `64MB` | RootFS: `${{ env.ROOTFS_SIZE }}MB`
             - **硬盘挂载**: 智能抓取 sda3 或 nvme0n1p3 动态绑定
-            - **核心**: 已内置 OpenClash Meta 核心与 Argon 主题
+            - **固件体积**: `${{ env.FIRMWARE_SIZE }}`
