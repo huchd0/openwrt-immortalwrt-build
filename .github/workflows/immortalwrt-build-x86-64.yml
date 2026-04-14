@@ -56,8 +56,8 @@ jobs:
           mkdir -p ${{ github.workspace }}/bin
           mkdir -p ${{ github.workspace }}/files
           # 关键：确保 shell 脚本格式正确（去除 Windows 换行符）
-          sed -i 's/\r$//' ${{ github.workspace }}/x86-64/ImmortalWrt-build-x86-64-build.sh
-          chmod +x ${{ github.workspace }}/x86-64/ImmortalWrt-build-x86-64-build.sh
+          sed -i 's/\r$//' ${{ github.workspace }}/x86-64/ImmortalWrt-build-x86-64.sh
+          chmod +x ${{ github.workspace }}/x86-64/ImmortalWrt-build-x86-64.sh
 
       - name: Run Docker ImageBuilder
         run: |
@@ -65,7 +65,7 @@ jobs:
             --user root \
             -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
             -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
-            -v "${{ github.workspace }}/x86-64/ImmortalWrt-build-x86-64-build.sh:/home/build/immortalwrt/build.sh" \
+            -v "${{ github.workspace }}/x86-64/ImmortalWrt-build-x86-64.sh:/home/build/immortalwrt/build.sh" \
             -e ROOTFS_SIZE="${{ inputs.profile }}" \
             -e MANAGEMENT_IP="${{ inputs.custom_router_ip }}" \
             immortalwrt/imagebuilder:x86-64-openwrt-${{ env.FINAL_VERSION }} \
