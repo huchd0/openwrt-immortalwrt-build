@@ -105,16 +105,16 @@ jobs:
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
         run: |
           # 🌟 核心防护：抹除 Windows 换行符
-          sed -i 's/\r$//' OpenWrt-x86-64-build.sh
+          sed -i 's/\r$//' Auto-OpenWrt-x86-64-build.sh
           
-          chmod +x OpenWrt-x86-64-build.sh
-          cp OpenWrt-x86-64-build.sh imagebuilder/
+          chmod +x Auto-OpenWrt-x86-64-build.sh
+          cp Auto-OpenWrt-x86-64-build.sh imagebuilder/
           cd imagebuilder
           
           # 双重防护
-          sed -i 's/\r$//' OpenWrt-x86-64-build.sh
+          sed -i 's/\r$//' Auto-OpenWrt-x86-64-build.sh
           
-          ./OpenWrt-x86-64-build.sh
+          ./Auto-OpenWrt-x86-64-build.sh
 
       - name: 生成发布时间变量
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
