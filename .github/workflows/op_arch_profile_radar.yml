@@ -1,4 +1,4 @@
-name: 🔍 OP Arch & Profile Radar (设备号智能寻址雷达)
+name: 🔍 OP Arch & Profile Radar (嵌入式设备寻址雷达)
 
 on:
   workflow_dispatch:
