@@ -29,18 +29,30 @@ jobs:
           INPUT_VER="${{ inputs.openwrt_version }}"
           EVENT_NAME="${{ github.event_name }}"
           
-          # 1. 获取官方最新稳定版号 (加入 Token 验证，防止 API 频率限制报错)
-          OFFICIAL_LATEST=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/openwrt/openwrt/releases" | grep '"tag_name":' | grep -v 'rc' | head -n 1 | cut -d '"' -f 4 | sed 's/v//')
+          # 1. 获取官方最新稳定版号 (排除 SNAPSHOT 标签)
+          OFFICIAL_LATEST=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/openwrt/openwrt/releases" | grep '"tag_name":' | grep -v 'SNAPSHOT' | head -n 1 | cut -d '"' -f 4 | sed 's/v//')
           
-          # 2. 获取本地最后发布
-          MY_LATEST=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/releases" | grep '"name":' | grep 'OpenWrt' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || echo "0.0.0")
+          # 2. 获取本地最后发布 (兼容 rc 版本的正则匹配)
+          MY_LATEST=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ github.repository }}/releases" | grep '"name":' | grep 'OpenWrt' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?' | head -n 1 || echo "0.0.0")
 
+          # 🌟 控制台直观日志输出
+          echo "========================================"
           echo "官方最新版本: $OFFICIAL_LATEST"
           echo "本地最后发布: $MY_LATEST"
+          echo "========================================"
+
+          # 🌟 写入 GitHub Actions 首页摘要面板 (Job Summary)
+          echo "### 🤖 固件版本检测摘要" >> $GITHUB_STEP_SUMMARY
+          echo "| 检测项 | 版本号 |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🌐 **官方最新版本** | \`$OFFICIAL_LATEST\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏠 **本地最后发布** | \`$MY_LATEST\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY # 空行分隔
 
           # 3. 智能判断逻辑
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
-            echo "手动触发模式！强制执行编译。"
+            echo "▶️ 状态: 手动触发模式！强制执行编译。"
+            echo "**▶️ 运行状态:** 手动触发，强制执行编译任务。" >> $GITHUB_STEP_SUMMARY
             echo "SHOULD_BUILD=true" >> $GITHUB_OUTPUT
             if [ -z "$INPUT_VER" ] || [ "$INPUT_VER" == "latest" ]; then
               echo "OWRT_VERSION=$OFFICIAL_LATEST" >> $GITHUB_ENV
@@ -48,13 +60,14 @@ jobs:
               echo "OWRT_VERSION=$INPUT_VER" >> $GITHUB_ENV
             fi
           else
-            echo "定时检查模式！"
             if [ "$OFFICIAL_LATEST" != "$MY_LATEST" ]; then
-              echo "发现新版本！准备更新..."
+              echo "🚀 状态: 已更新发布 ($MY_LATEST -> $OFFICIAL_LATEST)"
+              echo "**🚀 运行状态:** 发现新版本 (\`$MY_LATEST\` ➔ \`$OFFICIAL_LATEST\`)，已启动更新编译！" >> $GITHUB_STEP_SUMMARY
               echo "SHOULD_BUILD=true" >> $GITHUB_OUTPUT
               echo "OWRT_VERSION=$OFFICIAL_LATEST" >> $GITHUB_ENV
             else
-              echo "版本一致，无需更新。任务终止。"
+              echo "✅ 状态: 版本一致，无需更新。任务终止。"
+              echo "**✅ 运行状态:** 版本一致，无需更新。任务自动终止。" >> $GITHUB_STEP_SUMMARY
               echo "SHOULD_BUILD=false" >> $GITHUB_OUTPUT
             fi
           fi
@@ -94,7 +107,7 @@ jobs:
       - name: 📏 获取固件实际大小
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
         run: |
-          # 查找生成的 img 或 img.gz 文件，取体积最大的那个计算大小 (例如返回 120M)
+          # 查找生成的 img 或 img.gz 文件，取体积最大的那个计算大小
           FIRMWARE_SIZE=$(find imagebuilder/output-firmware/ -type f \( -name "*.img" -o -name "*.img.gz" \) -exec du -sh {} + | sort -hr | head -n 1 | awk '{print $1}')
           
           # 兜底逻辑：如果没匹配到特定后缀，就计算整个输出文件夹的总大小
@@ -104,6 +117,10 @@ jobs:
           
           echo "FIRMWARE_SIZE=$FIRMWARE_SIZE" >> $GITHUB_ENV
           echo "检测到固件实际大小为: $FIRMWARE_SIZE"
+          
+          # 追加编译成功信息到摘要面板
+          echo "### 🎉 编译成功" >> $GITHUB_STEP_SUMMARY
+          echo "- **固件体积:** \`${FIRMWARE_SIZE}\`" >> $GITHUB_STEP_SUMMARY
 
       - name: 🗑️ 清理旧的同名 Release
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
