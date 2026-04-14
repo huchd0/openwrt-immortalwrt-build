@@ -338,125 +338,134 @@ echo "0 2 */2 * * /usr/bin/upg" >> files/etc/crontabs/root
 
 echo "=== 5. 配置 ImmortalWrt 专属软件列表 ==="
 
+# --- 1. 核心系统与基础 UI ---
 PKG_CORE=(
-    "-dnsmasq"
-    "-dnsmasq-default"
-    "dnsmasq-full"
-    "luci"
-    "luci-base"
-    "luci-compat"
-    "luci-i18n-base-zh-cn"
-    "luci-i18n-firewall-zh-cn"
-    "luci-i18n-package-manager-zh-cn"
+    "-dnsmasq"                         # 排除基础版 dnsmasq
+    "-dnsmasq-default"                 # 排除默认 dnsmasq 配置
+    "dnsmasq-full"                     # 替换为全功能版（科学上网、透明代理必需支持）
+    "luci"                             # 路由器 Web 管理后台主程序
+    "luci-base"                        # Luci 基础依赖
+    "luci-compat"                      # Luci 旧版兼容包（很多第三方插件依赖它）
+    "luci-i18n-base-zh-cn"             # 基础系统界面的中文语言包
+    "luci-i18n-firewall-zh-cn"         # 防火墙界面的中文语言包
+    "luci-i18n-package-manager-zh-cn"  # 软件包管理（系统-软件包）的中文语言包
 )
 
+# --- 2. 磁盘、文件系统与 USB 扩展 ---
 PKG_DISK=(
-    "block-mount"
-    "blkid"
-    "lsblk"
-    "parted"
-    "fdisk"
-    "e2fsprogs"
-    "kmod-usb-storage"
-    "kmod-usb-storage-uas"
-    "kmod-fs-ext4"
-    "kmod-fs-ntfs3"
-    "kmod-fs-vfat"
-    "kmod-fs-exfat"
-    "luci-i18n-diskman-zh-cn"
-    "luci-i18n-filemanager-zh-cn"
+    "block-mount"                      # 挂载点管理工具（自动挂载大分区必备）
+    "blkid"                            # 查看磁盘 UUID 和属性
+    "lsblk"                            # 树状显示磁盘列表
+    "parted"                           # 高级磁盘分区工具
+    "fdisk"                            # 基础磁盘分区工具
+    "e2fsprogs"                        # ext4 文件系统格式化与修复工具 (mkfs.ext4)
+    "kmod-usb-storage"                 # USB 存储设备基础驱动
+    "kmod-usb-storage-uas"             # USB 3.0 UASP 高速协议加速驱动（防掉盘、提速）
+    "kmod-fs-ext4"                     # ext4 文件系统内核支持
+    "kmod-fs-ntfs3"                    # Windows NTFS 文件系统高效挂载驱动
+    "kmod-fs-vfat"                     # FAT32 文件系统驱动 (老旧 U 盘)
+    "kmod-fs-exfat"                    # exFAT 文件系统驱动 (新版 U 盘/移动硬盘)
+    "luci-i18n-diskman-zh-cn"          # 磁盘管理插件界面的中文包
+    "luci-i18n-filemanager-zh-cn"      # 网页版文件浏览器（方便直接在后台传文件）
 )
 
+# --- 3. 脚本、系统工具与依赖库 ---
 PKG_DEPENDS=(
-    "coreutils-nohup"
-    "bash"
-    "jq"
-    "curl"
-    "ca-bundle"
-    "libcap"
-    "libcap-bin"
-    "ruby"
-    "ruby-yaml"
-    "unzip"
+    "coreutils-nohup"                  # 允许命令在后台静默运行
+    "bash"                             # 行业标准的 Shell 终端环境
+    "jq"                               # JSON 数据解析工具（各种脚本必备）
+    "curl"                             # 强大的网络请求下载工具
+    "ca-bundle"                        # 根证书包（修复 https 访问报错）
+    "libcap"                           # 权限控制核心库
+    "libcap-bin"                       # 权限控制命令工具
+    "ruby"                             # Ruby 运行环境
+    "ruby-yaml"                        # Ruby 的 YAML 解析库 (OpenClash 运行依赖)
+    "unzip"                            # zip 压缩包解压工具
 )
 
+# --- 4. 网络加速、防火墙与网卡驱动 ---
 PKG_NETWORK=(
-    "ip-full"
-    "iptables-mod-tproxy"
-    "iptables-mod-extra"
-    "kmod-tun"
-    "kmod-inet-diag"
-    "kmod-nft-tproxy"
-    "kmod-igc"
-    "kmod-igb"
-    "kmod-r8169"
-    "iwinfo"
-    "kmod-tcp-bbr"
+    "ip-full"                          # 全功能的高级路由策略配置工具
+    "iptables-mod-tproxy"              # 透明代理模块（旁路由/科学上网核心）
+    "iptables-mod-extra"               # 防火墙额外扩展模块
+    "kmod-tun"                         # 虚拟网卡隧道模块 (OpenClash/VPN 必备)
+    "kmod-inet-diag"                   # 网络连接诊断分析模块
+    "kmod-nft-tproxy"                  # 基于 Nftables 的透明代理模块
+    "kmod-igc"                         # Intel i225/i226 2.5G 网卡驱动 (J4125 软路由标配)
+    "kmod-igb"                         # Intel 千兆网卡驱动
+    "kmod-r8169"                       # Realtek 瑞昱千兆/2.5G 网卡基础驱动
+    "iwinfo"                           # 查看无线网卡详细信息的工具
+    "kmod-tcp-bbr"                     # 开启 Google BBR 拥塞控制算法（有效降低网络延迟）
 )
 
+# --- 5. Wi-Fi 7 与 蓝牙 核心组件 ---
 PKG_WIFI_BT=(
-    "-wpad"
-    "-wpad-basic"
-    "-wpad-basic-mbedtls"
-    "-wpad-basic-wolfssl"
-    "-wpad-mbedtls"
-    "-wpad-wolfssl"
-    "wpad-openssl"
-    "kmod-mt7925e"
-    "kmod-mt7925-firmware"
-    "kmod-btusb"
-    "bluez-daemon"
-    "kmod-input-uinput"
+    "-wpad"                            # 排除默认的无线加密包
+    "-wpad-basic"                      # 排除基础版
+    "-wpad-basic-mbedtls"              # 排除低配版
+    "-wpad-basic-wolfssl"              # 排除低配版
+    "-wpad-mbedtls"                    # 排除低配版
+    "-wpad-wolfssl"                    # 排除低配版
+    "wpad-openssl"                     # 强制使用性能最强、最全能的 OpenSSL 加密（Wi-Fi 核心）
+    "kmod-mt7925e"                     # 联发科 MT7925 Wi-Fi 7 PCI-E 网卡驱动
+    "kmod-mt7925-firmware"             # MT7925 底层固件
+    "kmod-btusb"                       # 蓝牙 USB 驱动
+    "bluez-daemon"                     # 蓝牙守护进程
+    "kmod-input-uinput"                # 模拟用户输入模块（部分蓝牙外设依赖）
 )
 
+# --- 6. 性能监控与故障排查工具 ---
 PKG_MONITOR=(
-    "nano"
-    "htop"
-    "ethtool"
-    "tcpdump"
-    "mtr"
-    "conntrack"
-    "iftop"
-    "screen"
-    "collectd-mod-thermal"
-    "collectd-mod-sensors"
-    "collectd-mod-cpu"
-    "collectd-mod-ping"
-    "collectd-mod-interface"
-    "collectd-mod-rrdtool"
-    "collectd-mod-iwinfo"
+    "nano"                             # 简单易用的命令行文本编辑器
+    "htop"                             # 高级彩色系统资源监控器 (比 top 更好用)
+    "ethtool"                          # 物理网卡配置工具 (用于开启/关闭网卡特定功能)
+    "tcpdump"                          # 网络抓包神器
+    "mtr"                              # 路由追踪与连通性测试工具
+    "conntrack"                        # 连接数跟踪查看工具
+    "iftop"                            # 实时网络流量监控
+    "screen"                           # 终端多任务会话保持工具
+    "collectd-mod-thermal"             # 收集 CPU 温度数据
+    "collectd-mod-sensors"             # 收集主板传感器数据
+    "collectd-mod-cpu"                 # 收集 CPU 负载数据
+    "collectd-mod-ping"                # 收集网络延迟数据
+    "collectd-mod-interface"           # 收集网卡流量数据
+    "collectd-mod-rrdtool"             # 生成监控数据数据库
+    "collectd-mod-iwinfo"              # 收集无线网络质量数据
 )
 
+# --- 7. 物理硬件与底层工具 ---
 PKG_HW_TOOLS=(
-    "pciutils"
-    "iperf3"
-    "intel-microcode"
+    "pciutils"                         # 列出和查看 PCI/PCI-E 硬件设备 (lspci)
+    "iperf3"                           # 局域网极限测速工具
+    "intel-microcode"                  # Intel CPU 核心微代码补丁 (修复 J4125 漏洞，提升稳定性)
 )
 
+# --- 8. 核心应用与界面插件 ---
 PKG_LUCI_APPS=(
-    "luci-app-openclash"
-    "luci-app-homeproxy"
-    "luci-i18n-homeproxy-zh-cn"
-    "luci-theme-argon"
-    "luci-app-ksmbd"
-    "luci-i18n-ksmbd-zh-cn"
-    "luci-app-statistics"
-    "luci-i18n-statistics-zh-cn"
-    "luci-app-autoreboot"
-    "luci-i18n-autoreboot-zh-cn"
+    "luci-app-openclash"               # OpenClash 科学上网客户端
+    "luci-app-homeproxy"               # HomeProxy 科学上网客户端（备用/轻量选择）
+    "luci-i18n-homeproxy-zh-cn"        # HomeProxy 中文包
+    "luci-theme-argon"                 # 最受欢迎的 Argon 漂亮主题
+    "luci-app-ksmbd"                   # 苹果/Windows 网络共享 (性能比旧版 Samba4 更高)
+    "luci-i18n-ksmbd-zh-cn"            # Ksmbd 中文包
+    "luci-app-statistics"              # 酷炫的路由器性能/流量监控图表
+    "luci-i18n-statistics-zh-cn"       # 监控图表中文包
+    "luci-app-autoreboot"              # 计划任务：定时重启路由器
+    "luci-i18n-autoreboot-zh-cn"       # 定时重启中文包
 )
 
-# 动态加载 Docker 包
+# --- 9. Docker 虚拟化环境 ---
 PKG_DOCKER=()
 if [ "$INCLUDE_DOCKER" = "yes" ]; then
     PKG_DOCKER=(
-        "dockerd"
-        "docker-compose"
-        "luci-app-dockerman"
-        "luci-i18n-dockerman-zh-cn"
+        "dockerd"                      # Docker 核心守护引擎
+        "docker-compose"               # 支持运行 yaml 容器编排文件
+        "luci-app-dockerman"           # Web 网页版 Docker 管理界面
+        "luci-i18n-dockerman-zh-cn"    # Docker 管理界面中文包
     )
 fi
 
+# 合并所有模块
 ALL_PKGS=(
     "${PKG_CORE[@]}"
     "${PKG_DISK[@]}"
@@ -472,9 +481,10 @@ ALL_PKGS=(
 PACKAGES="${ALL_PKGS[*]}"
 
 echo "=== 6. 开始 Make Image 打包 ==="
-make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
+# 将 EXTRA_IMAGE_NAME 修改为 efi-Deluxe
+make image PROFILE="generic" PACKAGES="$PACKAGES" FILES="files" EXTRA_IMAGE_NAME="efi-Deluxe" KERNEL_PARTSIZE=64 ROOTFS_PARTSIZE="$ROOTFS_SIZE"
 
 echo "=== 7. 提取固件 ==="
 mkdir -p output-firmware
-cp bin/targets/x86/64/*combined-efi.img.gz output-firmware/ 2>/dev/null || true
-echo "=== 全部构建任务已圆满完成！ ==="
+# 匹配提取规则也需要同步加上 Deluxe
+cp bin/targets/x86/64/*efi-Deluxe*.img.gz output-firmware/ 2>/dev/null || true
