@@ -13,7 +13,7 @@ on:
           - '24.10.5'
           - '25.12.0-rc1'
       custom_router_ip:
-        description: '路由器管理地址'
+        description: '路由器管理地址 (LAN IP)'
         required: true
         default: '192.168.100.1'
         type: string
@@ -74,22 +74,32 @@ jobs:
       - name: Create Info Doc
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
-          ## 🌟 ImmortalWrt ${{ env.FINAL_VERSION }} 定制版
+          ## 🌟 ImmortalWrt ${{ env.FINAL_VERSION }} 轻量纯净定制版 (Wi-Fi 7 Ready)
           
-          - 🏠 **管理地址**: http://${{ inputs.custom_router_ip }}
-          - 👤 **用户名**: root
-          - 🔑 **密码**: (空)
-          - 📦 **分区配置**: Kernel: 64MB | RootFS: ${{ inputs.profile }}MB
-          - ⚙️ **核心集成**: OpenClash (Meta核心), Argon 主题
-          - 🛡️ **底层优化**: 纯离线防崩注入, 单/多网口智能分配 (eth0为WAN)
-          - 💾 **磁盘特性**: 首次开机自动挂载 sda3 (不破坏已有数据)
+          ### 💻 访问信息
+          - 🏠 **管理后台**: http://${{ inputs.custom_router_ip }}
+          - 👤 **默认账号**: root
+          - 🔑 **默认密码**: (空)
+          
+          ### 📶 Wi-Fi 7 无线网络 (开机即用，已装 MT7925 WiFi + 蓝牙驱动)
+          - 📡 **网络名称 (SSID)**: \`mywifi7\`
+          - 🔒 **Wi-Fi密码**: \`Aa666666\`
+          - ⚙️ **频段配置**: 5GHz / 149信道 / 加密模式: sae-mixed
+          
+          ### 🔌 接口定义 & 核心特性
+          - 🌐 **智能网口防冲突**: 多网口设备下 \`eth0\` 强制独立作为 **WAN口**，其余网口自动桥接为 **LAN口**。单网口设备下自动将 \`eth0\` 设为 LAN。
+          - 🚀 **全能科学网络**: 内置 OpenClash (Meta核心) + HomeProxy 双雄，附带 DDNS-GO 动态域名。
+          - 📂 **极速内网共享**: 内置 Ksmbd (更轻量高速的SMB协议网络共享工具) ，大容量磁盘(\`/dev/sda3\`)开机无损自动挂载。
+          - 🪶 **轻量防爆优化**: 无 Docker 依赖及冗余环境，系统资源极致释放，网络转发延迟更低。
+          - 🎨 **UI 界面**: 默认采用 Argon 极简主题。
+
           EOF
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: "${{ env.FINAL_VERSION }}-Build-${{ github.run_id }}"
-          name: "ImmortalWrt ${{ env.FINAL_VERSION }} [IP: ${{ inputs.custom_router_ip }} | ${{ inputs.profile }}MB]"
+          name: "🚀 ImmortalWrt ${{ env.FINAL_VERSION }} [IP: ${{ inputs.custom_router_ip }} | Wi-Fi 7 开机即用]"
           body_path: "${{ github.workspace }}/router-info.md"
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*squashfs-combined-efi.img.gz
