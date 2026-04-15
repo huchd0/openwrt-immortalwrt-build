@@ -1,9 +1,9 @@
-name: Auto-ImmortalWrt-x86_64-终极备份与扩容版
+name: Auto-ImmortalWrt-x86_64-终极稳定版
 
 on:
   workflow_dispatch:
     inputs:
-      # ====== 基础设定 (3个) ======
+      # ====== 基础设定 ======
       luci_version:
         description: "选择版本 (Auto 智能抓取)"
         required: false
@@ -19,7 +19,7 @@ on:
         required: true
         default: '10240'
         
-      # ====== 核心网络与存储 (5个) ======
+      # ====== 核心网络与存储 ======
       include_docker:
         description: "🐳 集成 Docker 引擎"
         type: boolean
@@ -41,29 +41,29 @@ on:
         type: boolean
         default: true
 
-      # ====== 常用扩展工具 (12个) ======
+      # ====== 常用扩展工具 ======
       theme_argon:
         description: "🎨 集成 Argon 主题"
         type: boolean
         default: true
       app_adguardhome:
-        description: "🛑 集成 AdGuardHome (去广告)"
+        description: "🛑 集成 AdGuardHome"
         type: boolean
         default: false
       app_alist:
-        description: "🗂️ 集成 AList (网盘挂载)"
+        description: "🗂️ 集成 AList"
         type: boolean
         default: false
       app_qbittorrent:
-        description: "🧲 集成 qBittorrent (下载)"
+        description: "🧲 集成 qBittorrent"
         type: boolean
         default: false
       app_mwan3:
-        description: "⚖️ 集成 MWAN3 (多拨/负载均衡)"
+        description: "⚖️ 集成 MWAN3 (多线多拨)"
         type: boolean
         default: false
       app_vlmcsd:
-        description: "🔑 集成 KMS (Win/Office激活)"
+        description: "🔑 集成 KMS 激活服务"
         type: boolean
         default: false
       app_statistics:
@@ -71,7 +71,7 @@ on:
         type: boolean
         default: true
       app_sqm:
-        description: "🚦 集成 SQM QoS (防网络拥塞)"
+        description: "🚦 集成 SQM QoS"
         type: boolean
         default: false
       app_wireguard:
@@ -79,11 +79,11 @@ on:
         type: boolean
         default: false
       app_tailscale:
-        description: "🕸️ 集成 Tailscale (异地组网)"
+        description: "🕸️ 集成 Tailscale"
         type: boolean
         default: false
       app_zerotier:
-        description: "🌍 集成 ZeroTier (虚拟局域网)"
+        description: "🌍 集成 ZeroTier"
         type: boolean
         default: false
       app_frpc:
@@ -91,7 +91,7 @@ on:
         type: boolean
         default: false
 
-      # ====== 独立实体网卡驱动 (5个) ======
+      # ====== 实体网卡驱动 ======
       kmod_igc:
         description: "🔌 驱动: Intel i225/i226 (2.5G)"
         type: boolean
@@ -118,11 +118,10 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      INPUT_VERSION: ${{ github.event.inputs.luci_version }}
       INPUT_IP: ${{ github.event.inputs.custom_router_ip }}
       INPUT_ROOTFS: ${{ github.event.inputs.rootfs_size }}
       
-      # 完整映射所有 20+ 个 UI 变量到脚本环境变量
+      # UI 变量映射
       INCLUDE_DOCKER: ${{ github.event.inputs.include_docker }}
       APP_HOMEPROXY: ${{ github.event.inputs.app_homeproxy }}
       APP_OPENCLASH: ${{ github.event.inputs.app_openclash }}
@@ -145,7 +144,7 @@ jobs:
       KMOD_E1000E: ${{ github.event.inputs.kmod_e1000e }}
       KMOD_R8169: ${{ github.event.inputs.kmod_r8169 }}
       KMOD_R8125: ${{ github.event.inputs.kmod_r8125 }}
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -158,14 +157,14 @@ jobs:
       - name: 解析智能版本号
         id: resolve_version
         run: |
-          if [ "$INPUT_VERSION" == "Auto" ]; then
+          if [ "${{ github.event.inputs.luci_version }}" == "Auto" ]; then
             TAG=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100&name=x86-64-openwrt-" | jq -r '.results[].name' | grep -v "SNAPSHOT" | head -n 1 | sed 's/x86-64-openwrt-//')
             echo "FINAL_VERSION=$TAG" >> $GITHUB_ENV
           else
-            echo "FINAL_VERSION=$INPUT_VERSION" >> $GITHUB_ENV
+            echo "FINAL_VERSION=${{ github.event.inputs.luci_version }}" >> $GITHUB_ENV
           fi
 
-      - name: 执行编译 (载入全部变量)
+      - name: 执行容器编译
         run: |
           docker run --rm -i \
             --user root \
@@ -201,27 +200,15 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: Build-${{ env.FINAL_VERSION }}
-          name: ImmortalWrt ${{ env.FINAL_VERSION }} 实体机稳定版
+          name: ImmortalWrt ${{ env.FINAL_VERSION }} 实体机终极版
           body: |
-            ## 🚀 固件技术特性
-            * **底层架构**：采用 `ext4` 文件系统，支持全盘原生读写与在线扩容。
-            * **空间分配**：首次开机时，系统盘 (`sda2`) 会自动扩容至 **${{ env.INPUT_ROOTFS }}MB**；剩余物理硬盘空间将自动划分为 `sda3` 数据盘并挂载至 `/opt`，确保重刷固件时数据持久化。
-            
-            ## 📡 网络默认配置
-            * **管理地址**：`${{ env.INPUT_IP }}`
-            * **默认账户**：`root`
-            * **默认密码**：无 (初次进入请自行设置)
-
-            ## 🛠️ 系统恢复指引 (重要)
-            **由于本固件采用 `ext4` 全盘可写架构，系统后台原生的“恢复出厂设置”按钮不可用且无效。** 但我们已内置了专属的备份与恢复机制：
-            
-            开机初始化时，系统已自动将纯净的配置文件备份至 `/opt/backup/` 目录。当系统配置出错导致无法联网时，请按以下步骤操作：
-            1. **进入终端**：使用 SSH 或网页版 TTYD 终端登录路由器。
-            2. **执行恢复命令**：在命令行中输入以下命令并回车：
-               ```bash
-               restore-factory
-               ```
-            3. **恢复流程**：系统将自动清理当前错误配置，提取初始纯净配置进行覆盖，随后自动重启即可恢复正常。*(存放在 /opt 里的 Docker 或下载数据不会被清除)*
-
+            ## 🚀 固件高级特性
+            - **内核预装**: 已在云端内嵌 OpenClash Meta 最新核心，开箱即用。
+            - **智能网口适配**: eth0 固定为 WAN/WAN6，其余自动桥接为 LAN；若识别为单网口设备，自动切换为纯 LAN 旁路由模式。
+            - **系统级容错扩容**: 首次开机安全检查后，自动将系统盘 (`sda2`) 无损拉伸至 **${{ env.INPUT_ROOTFS }}MB**。
+            - **数据绝对隔离**: 剩余空间识别为 `sda3`，仅执行安全挂载至 `/opt`，绝不触碰原有分区数据。
+            - **原生系统恢复**: 终端输入 `restore-factory` 即可从 /opt 提取纯净备份还原网络设置。
+          
+          # 仅上传唯一且最纯正的 EFI 引导固件，杜绝选择困难
           files: ${{ github.workspace }}/bin/targets/x86/64/*-ext4-combined-efi.img.gz
           token: ${{ secrets.GITHUB_TOKEN }}
