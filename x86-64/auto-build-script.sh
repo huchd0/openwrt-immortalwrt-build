@@ -16,14 +16,13 @@ BASE_PACKAGES=""
 # 系统与中文
 BASE_PACKAGES="$BASE_PACKAGES base-files block-mount default-settings-chn luci-i18n-base-zh-cn"
 # 性能与底层工具 (无界面)
-BASE_PACKAGES="$BASE_PACKAGES irqbalance zram-swap iperf3 htop curl wget-ssl kmod-virtio-net kmod-vmxnet3"
+BASE_PACKAGES="$BASE_PACKAGES irqbalance zram-swap iperf3 htop curl wget-ssl kmod-vmxnet3"
 
 # 🟢 隐式预装的小巧实用界面工具 (移出了 GitHub Action 选项卡)
 BASE_PACKAGES="$BASE_PACKAGES luci-app-ttyd luci-i18n-ttyd-zh-cn"                   # Web 终端
 BASE_PACKAGES="$BASE_PACKAGES luci-app-upnp luci-i18n-upnp-zh-cn"                   # UPnP 端口映射
 BASE_PACKAGES="$BASE_PACKAGES luci-app-wol luci-i18n-wol-zh-cn"                     # 网络唤醒
 BASE_PACKAGES="$BASE_PACKAGES luci-app-ramfree luci-i18n-ramfree-zh-cn"             # 一键释放内存
-BASE_PACKAGES="$BASE_PACKAGES luci-app-filetransfer luci-i18n-filetransfer-zh-cn"   # 网页文件传输
 BASE_PACKAGES="$BASE_PACKAGES luci-app-autoreboot luci-i18n-autoreboot-zh-cn"       # 定时重启
 # 隐式工具的预设配置 (定时重启默认开启：每天凌晨4点)
 echo "uci set autoreboot.@autoreboot[0].enable='1'" >> $DYNAMIC_SCRIPT
@@ -58,7 +57,7 @@ if [ "$APP_KSMBD" = "true" ]; then
     echo "uci set ksmbd.globals.description='ImmortalWrt NAS'" >> $DYNAMIC_SCRIPT
 fi
 if [ "$APP_ALIST" = "true" ]; then
-    BASE_PACKAGES="$BASE_PACKAGES luci-app-alist luci-i18n-alist-zh-cn"
+    BASE_PACKAGES="$BASE_PACKAGES luci-app-alist"
 fi
 if [ "$APP_QBITTORRENT" = "true" ]; then
     BASE_PACKAGES="$BASE_PACKAGES luci-app-qbittorrent luci-i18n-qbittorrent-zh-cn"
@@ -66,7 +65,7 @@ fi
 
 # 🛑 广告拦截
 if [ "$APP_ADGUARDHOME" = "true" ]; then
-    BASE_PACKAGES="$BASE_PACKAGES luci-app-adguardhome luci-i18n-adguardhome-zh-cn"
+    BASE_PACKAGES="$BASE_PACKAGES luci-app-adguardhome"
 fi
 
 # ⚖️ MWAN3 负载均衡/多拨
@@ -93,8 +92,10 @@ fi
 
 # 🕸️ VPN 与穿透组网
 if [ "$APP_WIREGUARD" = "true" ]; then
-    # 注意：WireGuard 独立中文包已弃用，因此这里没有 i18n
-    BASE_PACKAGES="$BASE_PACKAGES luci-proto-wireguard luci-app-wireguard"
+    BASE_PACKAGES="$BASE_PACKAGES luci-proto-wireguard"
+fi
+if [ "$APP_TAILSCALE" = "true" ]; then
+    BASE_PACKAGES="$BASE_PACKAGES tailscale"
 fi
 # 🕸️ Tailscale 异地组网
 if [ "$APP_TAILSCALE" = "true" ]; then
