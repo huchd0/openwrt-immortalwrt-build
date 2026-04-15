@@ -221,6 +221,8 @@ if [ -f "$FIRMWARE_FILE" ]; then
         echo "### ✅ 编译打包成功！"
         echo "- 固件体积：**${FILE_SIZE} KB** (健康)"
         echo "- 请在页面底部的 Artifacts 中下载您的专属固件。"
+        echo ""
+        echo "---"  # 👈 加上这行分割线，把它和 GitHub 的系统提示隔开
     } >> "$SUMMARY_FILE"
     
 else
