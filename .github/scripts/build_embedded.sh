@@ -3,12 +3,12 @@
 set -o pipefail
 
 # ==========================================
-# 📝 1. 品牌容错字典
+# 📝 1. 多维度智能容错字典 (品牌与芯片)
 # ==========================================
 BRAND_DICT="
 小米|mi                (xiaomi)
-红米                  (redmi)
-华硕|败家之眼|asus     (asus)
+红米                   (redmi)
+华硕|败家之眼|asus       (asus)
 普联|tp|tplink         (tplink|tp-link)
 网件|netgear           (netgear)
 领势|linksys           (linksys)
@@ -18,19 +18,48 @@ BRAND_DICT="
 华为|huawei            (huawei)
 华三|h3c               (h3c)
 锐捷|ruijie            (ruijie)
-京东云|jd|无线宝       (jdcloud)
+京东云|jd|无线宝        (jdcloud)
 斐讯|phicomm           (phicomm)
 新路由|newifi|dteam    (newifi|d-team)
 极路由|hiwifi          (hiwifi)
 奇虎|360               (qihoo)
-移动|中国移动|cmcc     (cmcc)
+移动|中国移动|cmcc      (cmcc)
 友善|nanopi|friendlyarm(friendlyarm)
 "
 
+CHIP_DICT="
+mt7981|mt7981b|mt7981a    (mediatek-filogic)
+mt7986|mt7986a|mt7986b    (mediatek-filogic)
+mt7988|mt7988a|mt7988d    (mediatek-mt7988)
+mt7621|mt7621a|mt7621at   (ramips-mt7621)
+mt7620|mt7620a            (ramips-mt7620)
+mt7622|mt7622b            (mediatek-mt7622)
+mt7628|mt7628an           (ramips-mt76x8)
+mt7688|mt7688an           (ramips-mt76x8)
+ipq6000|ipq6018|ipq6010   (qualcomm-ipq60xx)
+ipq8071|ipq8072|ipq8074   (qualcomm-ipq807x)
+ipq8071a|ipq8070          (qualcomm-ipq807x)
+ipq4019|ipq4029           (ipq40xx-generic)
+ipq5018|ipq5000           (qualcomm-ipq50xx)
+ipq8064|ipq8065           (ipq806x-generic)
+qca9531|qca9533           (ath79-generic)
+qca9561|qca9563           (ath79-generic)
+rk3328                    (rockchip-armv8)
+rk3399                    (rockchip-armv8)
+rk3568|rk3566             (rockchip-armv8)
+rk3588|rk3588s            (rockchip-armv8)
+bcm4908|bcm4906           (bcm4908-generic)
+bcm4708|bcm4709           (bcm53xx-generic)
+s905x3|s905x4             (amlogic-meson)
+s922x                     (amlogic-meson)
+"
+
 RAW_BRAND=$(echo "$BRAND_INPUT" | xargs | tr '[:upper:]' '[:lower:]')
+RAW_ARCH=$(echo "$TARGET_ARCH" | xargs | tr '[:upper:]' '[:lower:]')
 EXACT_PROFILE=$(echo "$DEVICE_PROFILE" | xargs)
 
-translate_brand() {
+# 通用翻译引擎：支持字典解析与回退机制
+translate_dict() {
   local input="$1"; local dict="$2"
   [ -z "$input" ] && return
   for word in $input; do
@@ -48,11 +77,20 @@ translate_brand() {
   done
   echo "$input"
 }
-BRAND_KEYWORD=$(translate_brand "$RAW_BRAND" "$BRAND_DICT" | tr ' ' '|')
+
+BRAND_KEYWORD=$(translate_dict "$RAW_BRAND" "$BRAND_DICT" | tr ' ' '|')
 
 # ==========================================
-# ⚙️ 2. 架构内核适配
+# ⚙️ 2. 架构智能推导与内核适配
 # ==========================================
+# 将可能传入的芯片名转换为标准架构
+TARGET_ARCH=$(translate_dict "$RAW_ARCH" "$CHIP_DICT")
+
+if [ -n "$RAW_ARCH" ] && [ "$TARGET_ARCH" != "$RAW_ARCH" ]; then
+    echo "💡 智能推导：根据芯片输入 [$RAW_ARCH] 自动锁定标准架构为 [$TARGET_ARCH]"
+fi
+
+# 基于推导出的标准架构，匹配 OpenClash 等插件对应的二进制内核
 case "$TARGET_ARCH" in
     *"x86-64"*)             CORE="amd64-compatible" ;;
     *"armv8"*|*"aarch64"*)  CORE="arm64" ;;
@@ -216,6 +254,7 @@ fi
 [ -d "bin/targets/salvaged" ] && cd bin/targets/salvaged || cd bin/targets/*/*
 for img in *.bin; do
     if [ -f "$img" ]; then
+        # 这里的 TARGET_ARCH 已经是标准架构名称
         mv "$img" "${img%.*}-${TARGET_ARCH}.bin"
     fi
 done
