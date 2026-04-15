@@ -150,7 +150,7 @@ jobs:
             cat bin/step_summary.md >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: 📦 发布 Release
+      - name: 📦 生成专属下载页面 (Release)
         uses: softprops/action-gh-release@v2.4.1
         if: success()
         with:
@@ -169,5 +169,18 @@ jobs:
             bin/targets/*/*/*.bin
             bin/targets/*/*/*.img.gz
             bin/targets/*/*/sha256sums
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🔗 打印直达下载链接到首页
+        if: success()
+        run: |
+          {
+            echo "---"
+            echo "### 📥 固件已发布至下载页！"
+            echo "您的专属固件已成功打包，并永久存放在了本项目的 Releases 页面中。"
+            echo "👉 **[点击这里直达下载页面](https://github.com/${{ github.repository }}/releases/tag/${{ env.CLEAN_PROFILE }}-${{ env.VERSION }}-${{ env.CLEAN_ARCH }}-${{ inputs.build_mode }})**"
+          } >> $GITHUB_STEP_SUMMARY
+          
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
