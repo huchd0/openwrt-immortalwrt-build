@@ -1,4 +1,4 @@
-name: build-immortalwrt-x86-64-Docker-Deluxe
+name: Auto-ImmortalWrt-x86_64-智能自动编译发布
 
 on:
   workflow_dispatch:
@@ -20,36 +20,42 @@ on:
         description: '编译固件 RootFS 分区大小 (单位: MB，建议 1024 以上)'
         required: true
         default: '1024'
-      include_docker:
-        description: "集成 Docker 及网络互通环境"
-        required: true
-        default: 'yes'
-        type: choice
-        options:
-          - 'yes'
-          - 'no'
       pppoe_account:
         description: "PPPOE 宽带账号 (可选)"
         required: false
       pppoe_password:
         description: "宽带密码 (留空则默认为 DHCP 上网)"
         required: false
-      
-      # ====== 新增：可选插件复选框 (boolean 类型) ======
-      app_openclash:
-        description: "🔌 集成 luci-app-openclash (科学插件)"
+        
+      # ==========================================
+      # ⬇️ 模块化功能开关 (复选框区域，支持默认打勾) ⬇️
+      # ==========================================
+      include_docker:
+        description: "🐳 集成 Docker 引擎及网络互通环境"
         type: boolean
         default: true
+      app_openclash:
+        description: "🔌 集成 OpenClash (科学上网内核与界面)"
+        type: boolean
+        default: true
+      app_passwall:
+        description: "🚀 集成 PassWall (备用科学插件)"
+        type: boolean
+        default: false
       app_upnp:
-        description: "🎮 集成 luci-app-upnp (UPnP自动端口映射)"
+        description: "🎮 集成 UPnP (自动端口映射)"
         type: boolean
         default: true
       app_ddns:
-        description: "🌐 集成 luci-app-ddns (动态域名解析)"
+        description: "🌐 集成 DDNS (动态域名解析)"
         type: boolean
         default: false
       app_wol:
-        description: "💻 集成 luci-app-wol (网络唤醒)"
+        description: "💻 集成 WOL (网络唤醒)"
+        type: boolean
+        default: false
+      app_alist:
+        description: "🗂️ 集成 AList (多存储网盘挂载)"
         type: boolean
         default: false
 
@@ -58,19 +64,20 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      # 全局映射 Action 输入为环境变量
-      INPUT_VERSION: ${{ inputs.luci_version }}
-      INPUT_IP: ${{ inputs.custom_router_ip }}
-      INPUT_ROOTFS: ${{ inputs.rootfs_size }}
-      INPUT_DOCKER: ${{ inputs.include_docker }}
-      INPUT_PPPOE_ACC: ${{ inputs.pppoe_account }}
-      INPUT_PPPOE_PWD: ${{ inputs.pppoe_password }}
+      INPUT_VERSION: ${{ github.event.inputs.luci_version }}
+      INPUT_IP: ${{ github.event.inputs.custom_router_ip }}
+      INPUT_ROOTFS: ${{ github.event.inputs.rootfs_size }}
+      INPUT_PPPOE_ACC: ${{ github.event.inputs.pppoe_account }}
+      INPUT_PPPOE_PWD: ${{ github.event.inputs.pppoe_password }}
       
-      # 将布尔值传递给环境变量 (选了是 'true'，没选是 'false')
-      INPUT_APP_OPENCLASH: ${{ inputs.app_openclash }}
-      INPUT_APP_UPNP: ${{ inputs.app_upnp }}
-      INPUT_APP_DDNS: ${{ inputs.app_ddns }}
-      INPUT_APP_WOL: ${{ inputs.app_wol }}
+      # 映射布尔值到环境变量 (选中为 'true', 未选为 'false')
+      INPUT_DOCKER: ${{ github.event.inputs.include_docker }}
+      INPUT_APP_OPENCLASH: ${{ github.event.inputs.app_openclash }}
+      INPUT_APP_PASSWALL: ${{ github.event.inputs.app_passwall }}
+      INPUT_APP_UPNP: ${{ github.event.inputs.app_upnp }}
+      INPUT_APP_DDNS: ${{ github.event.inputs.app_ddns }}
+      INPUT_APP_WOL: ${{ github.event.inputs.app_wol }}
+      INPUT_APP_ALIST: ${{ github.event.inputs.app_alist }}
       
     steps:
       - name: Checkout code
@@ -78,8 +85,8 @@ jobs:
 
       - name: Set executable permissions
         run: |
-          sed -i 's/\r$//' ${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe.sh
-          chmod +x ${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe.sh
+          sed -i 's/\r$//' ${{ github.workspace }}/x86-64/auto-build-script.sh
+          chmod +x ${{ github.workspace }}/x86-64/auto-build-script.sh
 
       - name: Generate build timestamp
         id: date
@@ -124,36 +131,35 @@ jobs:
         run: |
           echo "🚀 开始基于 ${{ env.FINAL_VERSION }} 构建，RootFS 大小: ${INPUT_ROOTFS}MB"
           
-          # 将插件的变量通过 -e 注入进 Docker 环境中
           docker run --rm -i \
             --user root \
             -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
             -v "${{ github.workspace }}/files:/home/build/immortalwrt/files" \
             -v "${{ github.workspace }}/shell:/home/build/immortalwrt/shell" \
-            -v "${{ github.workspace }}/x86-64/immortalwrt-build-x86-64-Deluxe.sh:/home/build/immortalwrt/build.sh" \
+            -v "${{ github.workspace }}/x86-64/auto-build-script.sh:/home/build/immortalwrt/build.sh" \
             -e ROOTFS_SIZE="$INPUT_ROOTFS" \
             -e INCLUDE_DOCKER="$INPUT_DOCKER" \
             -e PPPOE_ACCOUNT="$INPUT_PPPOE_ACC" \
             -e PPPOE_PASSWORD="$INPUT_PPPOE_PWD" \
             -e APP_OPENCLASH="$INPUT_APP_OPENCLASH" \
+            -e APP_PASSWALL="$INPUT_APP_PASSWALL" \
             -e APP_UPNP="$INPUT_APP_UPNP" \
             -e APP_DDNS="$INPUT_APP_DDNS" \
             -e APP_WOL="$INPUT_APP_WOL" \
+            -e APP_ALIST="$INPUT_APP_ALIST" \
             immortalwrt/imagebuilder:x86-64-openwrt-${{ env.FINAL_VERSION }} /bin/bash /home/build/immortalwrt/build.sh
           
       - name: Generate Smart Release Notes
         run: |
           DOCKER_STATUS="❎ 未集成"
           DOCKER_NOTE="*(未启用 Docker 自动化配置)*"
-          
-          if [ "$INPUT_DOCKER" == "yes" ]; then
+          if [ "$INPUT_DOCKER" == "true" ]; then
             DOCKER_STATUS="✅ 已集成 (**包含全自动网络互通与防火墙转发规则**)"
             DOCKER_NOTE="自动注册 Docker 虚拟网卡，并在防火墙中打通 LAN与Docker 的双向访问、允许 Docker 容器直连外网拉取镜像。"
           fi
 
           WAN_STATUS="🔌 DHCP / 静态 IP"
           PPPOE_NOTE="*(未启用自动拨号功能)*"
-          
           if [[ -n "$INPUT_PPPOE_ACC" && -n "$INPUT_PPPOE_PWD" ]]; then
             WAN_STATUS="📝 PPPoE (**开机全自动注入账号密码并拨号**)"
             PPPOE_NOTE="自动将你填写的宽带账号密码写入 WAN 口并拨号。"
@@ -162,18 +168,20 @@ jobs:
             PPPOE_NOTE="*(检测到不完整的宽带信息，防呆机制触发，已安全回退至 DHCP 模式)*"
           fi
 
-          # 生成已选插件列表，用于 Release 展示
+          # 动态拼接已安装插件的 Markdown 列表
           PLUGINS_INSTALLED=""
           [ "$INPUT_APP_OPENCLASH" == "true" ] && PLUGINS_INSTALLED+="- \`luci-app-openclash\`\n"
+          [ "$INPUT_APP_PASSWALL" == "true" ] && PLUGINS_INSTALLED+="- \`luci-app-passwall\`\n"
           [ "$INPUT_APP_UPNP" == "true" ] && PLUGINS_INSTALLED+="- \`luci-app-upnp\`\n"
           [ "$INPUT_APP_DDNS" == "true" ] && PLUGINS_INSTALLED+="- \`luci-app-ddns\`\n"
           [ "$INPUT_APP_WOL" == "true" ] && PLUGINS_INSTALLED+="- \`luci-app-wol\`\n"
-          [ -z "$PLUGINS_INSTALLED" ] && PLUGINS_INSTALLED="- *(未选择额外插件)*"
+          [ "$INPUT_APP_ALIST" == "true" ] && PLUGINS_INSTALLED+="- \`luci-app-alist\`\n"
+          [ -z "$PLUGINS_INSTALLED" ] && PLUGINS_INSTALLED="- *(未选择任何额外插件)*"
 
           cat > ${{ github.workspace }}/router-info.md <<EOF
-          ## 🚀 ImmortalWrt ${{ env.FINAL_VERSION }} 高级定制固件-Deluxe
+          ## 🚀 ImmortalWrt ${{ env.FINAL_VERSION }} 智能定制固件
           
-          > 本固件由 GitHub Actions 驱动 \`ImageBuilder\` 全自动构建，专为 x86-64 物理机与虚拟机优化。
+          > 本固件由 GitHub Actions 驱动 \`ImageBuilder\` 全自动智能构建。
           
           ## 📡 路由器后台与网络
           - 🏠 **管理地址**: \`$INPUT_IP\`
@@ -182,15 +190,14 @@ jobs:
           - 🌐 **上网方式**: $WAN_STATUS
           
           ## ⚙️ 核心固件特性
-          - 🔒 **内核分区**: \`64 MB\` *(底层锁定，保障跨版本互刷不掉盘)*
+          - 🔒 **内核分区**: \`64 MB\`
           - 💾 **RootFS 分区**: \`${INPUT_ROOTFS} MB\`
           - 🐳 **Docker 环境**: $DOCKER_STATUS
           
-          ## 🧩 已集成插件
+          ## 🧩 已集成的自选插件
           $PLUGINS_INSTALLED
           
           ## 💡 开机自动化说明 (无痕部署)
-          本固件内置了启动脚本，**首次开机时会自动执行以下操作，并在执行完毕后自我销毁**，保持系统纯净：
           1. 自动绑定指定的 LAN 口 IP。
           2. $PPPOE_NOTE
           3. $DOCKER_NOTE
@@ -200,10 +207,11 @@ jobs:
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: Build-${{ env.DATE }}
-          name: ImmortalWrt ${{ env.FINAL_VERSION }}-Deluxe (${{ inputs.custom_router_ip }})
+          name: ImmortalWrt ${{ env.FINAL_VERSION }} 智能定制版 (${{ github.event.inputs.custom_router_ip }})
           body_path: ${{ github.workspace }}/router-info.md
           files: |
-            ${{ github.workspace }}/bin/targets/x86/64/*-Deluxe.img.gz
+            ${{ github.workspace }}/bin/targets/x86/64/*-ext4-combined-efi.img.gz
+            ${{ github.workspace }}/bin/targets/x86/64/*-squashfs-combined-efi.img.gz
             ${{ github.workspace }}/bin/targets/x86/64/*sha256sums
           token: ${{ secrets.GITHUB_TOKEN }}
           make_latest: true
