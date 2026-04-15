@@ -31,7 +31,7 @@ on:
         type: choice
         options:
           - 'Auto'
-          - '25.12.0-rc1'
+          - '25.12.0-rc2'
           - '24.10.5'
           - '23.05.4'
           - '21.02.7'
@@ -47,7 +47,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       
     steps:
-      - name: Checkout
+      - name: 📥 检出代码库
         uses: actions/checkout@v4
 
       - name: 🔍 智能解析架构与版本 (芯片特征推导)
@@ -87,7 +87,6 @@ jobs:
           s922x                     (amlogic-meson)
           "
           
-          # 执行翻译引擎
           translate_dict() {
             local input="$1"; local dict="$2"
             [ -z "$input" ] && return
@@ -107,13 +106,8 @@ jobs:
             echo "$input"
           }
           
-          # 获取标准架构名称，确保后续 Docker 引擎能够找到对应镜像
           CLEAN_ARCH=$(translate_dict "$RAW_ARCH" "$CHIP_DICT")
           
-          if [ "$CLEAN_ARCH" != "$RAW_ARCH" ]; then
-            echo "💡 YAML 预处理：芯片特征 [$RAW_ARCH] 已校准为标准架构 [$CLEAN_ARCH]"
-          fi
-
           if [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
             LATEST=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100&name=${CLEAN_ARCH}-openwrt-" | \
               jq -r '.results[].name' | grep -v "SNAPSHOT" | grep -E "[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$" | sort -V | tail -n 1 | sed "s/${CLEAN_ARCH}-openwrt-//")
@@ -133,10 +127,9 @@ jobs:
           SCRIPT_PATH="./.github/scripts/build_embedded.sh"
           [ -f "$SCRIPT_PATH" ] && sed -i 's/\r$//' "$SCRIPT_PATH"
           
-          # 每次运行前清理旧的报告文件
+          # 清理旧的诊断报告（如果存在）
           rm -f bin/step_summary.md
           
-          # 移除了那两行出错的 GITHUB_STEP_SUMMARY 映射，保持干净运行
           docker run --rm -i \
             --user root \
             -v "${{ github.workspace }}/bin:/home/build/immortalwrt/bin" \
@@ -151,7 +144,7 @@ jobs:
             /bin/bash /home/build/immortalwrt/build.sh
 
       - name: 📢 输出编译诊断面板
-        if: always() # 确保就算前面的 Docker 运行报错退出，这一步也会执行
+        if: always() # 必须保留：无论前面成功还是报错拦截，都要执行这一步来打印报告
         run: |
           if [ -f "bin/step_summary.md" ]; then
             cat bin/step_summary.md >> $GITHUB_STEP_SUMMARY
@@ -161,7 +154,7 @@ jobs:
         uses: softprops/action-gh-release@v2.4.1
         if: success()
         with:
-          tag_name: "${{ env.CLEAN_PROFILE }}-${{ env.VERSION }}-${{ env.CLEAN_ARCH }}"
+          tag_name: "${{ env.CLEAN_PROFILE }}-${{ env.VERSION }}-${{ env.CLEAN_ARCH }}-${{ inputs.build_mode }}"
           body: |
             ## 🛠️ 构建详情
             - **内核架构**: ${{ env.CLEAN_ARCH }}
