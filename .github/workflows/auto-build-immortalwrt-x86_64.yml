@@ -20,13 +20,7 @@ on:
         description: '编译固件 RootFS 分区大小 (单位: MB，建议 1024 以上)'
         required: true
         default: '1024'
-      pppoe_account:
-        description: "PPPOE 宽带账号 (可选)"
-        required: false
-      pppoe_password:
-        description: "宽带密码 (留空则默认为 DHCP 上网)"
-        required: false
-        
+
       # ==========================================
       # ⬇️ 模块化功能开关 (复选框区域，支持默认打勾) ⬇️
       # ==========================================
@@ -58,6 +52,16 @@ on:
         description: "🗂️ 集成 AList (多存储网盘挂载)"
         type: boolean
         default: false
+        
+
+      # ==========================================
+
+      pppoe_account:
+        description: "PPPOE 宽带账号 (可选)"
+        required: false
+      pppoe_password:
+        description: "宽带密码 (留空则默认为 DHCP 上网)"
+        required: false
 
 jobs:
   build:
