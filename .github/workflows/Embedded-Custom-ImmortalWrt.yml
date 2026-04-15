@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       arch:
-        description: '1. 架构(Arch)* (如: ramips-mt7621)'
+        description: '1. 架构或芯片* (如: mt7981, ramips-mt7621)'
         required: true
         default: 'ramips-mt7621'
       device_profile:
@@ -50,13 +50,70 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🔍 净化变量与解析版本
+      - name: 🔍 智能解析架构与版本 (芯片特征推导)
         id: vars
         run: |
-          CLEAN_ARCH=$(echo "${{ inputs.arch }}" | xargs)
+          RAW_ARCH=$(echo "${{ inputs.arch }}" | xargs | tr '[:upper:]' '[:lower:]')
           CLEAN_PROFILE=$(echo "${{ inputs.device_profile }}" | xargs)
           CLEAN_BRAND=$(echo "${{ inputs.brand }}" | xargs)
           
+          # ==========================================
+          # 🧠 芯片字典 (供 Docker 拉取镜像前进行精确校准)
+          # ==========================================
+          CHIP_DICT="
+          mt7981|mt7981b|mt7981a    (mediatek-filogic)
+          mt7986|mt7986a|mt7986b    (mediatek-filogic)
+          mt7988|mt7988a|mt7988d    (mediatek-mt7988)
+          mt7621|mt7621a|mt7621at   (ramips-mt7621)
+          mt7620|mt7620a            (ramips-mt7620)
+          mt7622|mt7622b            (mediatek-mt7622)
+          mt7628|mt7628an           (ramips-mt76x8)
+          mt7688|mt7688an           (ramips-mt76x8)
+          ipq6000|ipq6018|ipq6010   (qualcomm-ipq60xx)
+          ipq8071|ipq8072|ipq8074   (qualcomm-ipq807x)
+          ipq8071a|ipq8070          (qualcomm-ipq807x)
+          ipq4019|ipq4029           (ipq40xx-generic)
+          ipq5018|ipq5000           (qualcomm-ipq50xx)
+          ipq8064|ipq8065           (ipq806x-generic)
+          qca9531|qca9533           (ath79-generic)
+          qca9561|qca9563           (ath79-generic)
+          rk3328                    (rockchip-armv8)
+          rk3399                    (rockchip-armv8)
+          rk3568|rk3566             (rockchip-armv8)
+          rk3588|rk3588s            (rockchip-armv8)
+          bcm4908|bcm4906           (bcm4908-generic)
+          bcm4708|bcm4709           (bcm53xx-generic)
+          s905x3|s905x4             (amlogic-meson)
+          s922x                     (amlogic-meson)
+          "
+          
+          # 执行翻译引擎
+          translate_dict() {
+            local input="$1"; local dict="$2"
+            [ -z "$input" ] && return
+            for word in $input; do
+              local matched=0
+              while IFS= read -r line; do
+                [[ ! "$line" =~ [^[:space:]] ]] && continue
+                local target=$(echo "${line##*\(}" | tr -d ')')
+                local aliases_str=$(echo "${line%\(*}" | tr '[:upper:]' '[:lower:]')
+                IFS='|' read -ra ALIAS_ARRAY <<< "$aliases_str"
+                for raw_alias in "${ALIAS_ARRAY[@]}"; do
+                  local clean_alias=$(echo "$raw_alias" | xargs)
+                  if [[ "$word" == "$clean_alias" ]]; then echo "$target"; return; fi
+                done
+              done <<< "$dict"
+            done
+            echo "$input"
+          }
+          
+          # 获取标准架构名称，确保后续 Docker 引擎能够找到对应镜像
+          CLEAN_ARCH=$(translate_dict "$RAW_ARCH" "$CHIP_DICT")
+          
+          if [ "$CLEAN_ARCH" != "$RAW_ARCH" ]; then
+            echo "💡 YAML 预处理：芯片特征 [$RAW_ARCH] 已校准为标准架构 [$CLEAN_ARCH]"
+          fi
+
           if [ "${{ inputs.openwrt_version }}" == "Auto" ]; then
             LATEST=$(curl -sL "https://hub.docker.com/v2/repositories/immortalwrt/imagebuilder/tags?page_size=100&name=${CLEAN_ARCH}-openwrt-" | \
               jq -r '.results[].name' | grep -v "SNAPSHOT" | grep -E "[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)?$" | sort -V | tail -n 1 | sed "s/${CLEAN_ARCH}-openwrt-//")
