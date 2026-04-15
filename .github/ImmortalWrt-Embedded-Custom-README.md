@@ -1,4 +1,5 @@
-# 🚀 ImmortalWrt-Embedded-Custom (非x86设备定制固件) & 🔍 OP Arch & Profile Radar (设备号智能寻址雷达)
+##  [🚀 ImmortalWrt-Embedded-Custom (非x86设备定制固件)](https://github.com/huchd0/openwrt-x86-64-build/actions/workflows/Embedded-Custom-ImmortalWrt.yml) 
+##  [🔍 OP Arch & Profile Radar (设备号智能寻址雷达)](https://github.com/huchd0/openwrt-x86-64-build/actions/workflows/op_arch_profile_radar.yml)
 
 欢迎使用本系统！本套件专为嵌入式路由器（比如红米、华硕、中兴、NanoPi...的硬路由）设计。通过“寻址雷达”与“云端编译引擎”的强强联手，助你打破硬件枷锁，实现 U 盘无感扩容与插件自由。
 
@@ -8,7 +9,7 @@
 
 在编译之前，你必须知道你路由器的“身份证号”。
 
-1. 打开 **OP Arch & Profile Radar (设备号智能寻址雷达)**。
+1. 打开 ** [🔍 OP Arch & Profile Radar (设备号智能寻址雷达)](https://github.com/huchd0/openwrt-x86-64-build/actions/workflows/op_arch_profile_radar.yml) **。
 2. 输入你的路由器型号（例如：`京东云一代` 或 `鲁班`），如果结果有问题，请通过多个参数交叉验证，务必得出正确架构 (Arch)和设备代号 (Profile)。
 3. 雷达会立刻为你扫描出两个核心参数，请务必记下：
    * **架构 (Arch)**：例如 `ramips-mt7621`
@@ -18,7 +19,7 @@
 
 ## 🏭 第二阶段：启动云端定制构建
 
-进入 GitHub Actions 页面，选择 `ImmortalWrt-Embedded-Custom` 工作流，点击 `Run workflow`。请根据雷达获取的信息填写表单：
+进入 GitHub Actions 页面，选择 [🚀 ImmortalWrt-Embedded-Custom (非x86设备定制固件)](https://github.com/huchd0/openwrt-x86-64-build/actions/workflows/Embedded-Custom-ImmortalWrt.yml)  工作流，点击 `Run workflow`。请根据雷达获取的信息填写表单：
 
 * **1. 架构 (Arch)**：填入雷达给出的架构号（必填）。
 * **2. 设备代号 (Profile)**：填入雷达给出的设备代号（必填）。
