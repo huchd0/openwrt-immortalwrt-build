@@ -118,7 +118,6 @@ fi
 if [ "$APP_WIREGUARD" = "true" ]; then
     BASE_PACKAGES="$BASE_PACKAGES luci-proto-wireguard"             # WireGuard 协议支持
     BASE_PACKAGES="$BASE_PACKAGES luci-app-wireguard"               # WireGuard 状态界面
-    BASE_PACKAGES="$BASE_PACKAGES luci-i18n-wireguard-zh-cn"        # WireGuard 中文包
 fi
 
 # 🕸️ Tailscale 异地组网
