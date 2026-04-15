@@ -29,9 +29,9 @@ on:
         type: boolean
         default: true
       app_openclash:
-        description: "🔌 集成 OpenClash (备用科学插件)"
+        description: "🔌 集成 OpenClash (科学插件)"
         type: boolean
-        default: false
+        default: true
       theme_argon:
         description: "🎨 集成 Argon 主题 (仅主题无控制面板)"
         type: boolean
