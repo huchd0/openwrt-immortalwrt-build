@@ -120,11 +120,11 @@ echo "uci commit" >> $DYNAMIC_SCRIPT
 echo "exit 0" >> $DYNAMIC_SCRIPT
 chmod +x $DYNAMIC_SCRIPT
 
-# 🎯 强行锁死云端出包为 512MB，实现极速编译
+# 🎯 强行锁死云端出包体积，提升为 1024MB (1GB)，确保能装下 Docker 等庞然大物！
 if grep -q "CONFIG_TARGET_ROOTFS_PARTSIZE" .config; then
-    sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=512/g" .config
+    sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=1024/g" .config
 else
-    echo "CONFIG_TARGET_ROOTFS_PARTSIZE=512" >> .config
+    echo "CONFIG_TARGET_ROOTFS_PARTSIZE=1024" >> .config
 fi
 
 # 🛡️ 强行锁死内核分区为 64MB，确保未来重刷固件时数据盘起点的物理扇区绝对不偏移
