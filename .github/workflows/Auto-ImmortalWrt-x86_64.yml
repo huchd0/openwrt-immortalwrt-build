@@ -29,19 +29,23 @@ on:
         type: boolean
         default: true
       app_openclash:
-        description: "🔌 集成 OpenClash (科学插件)"
+        description: "🔌 集成 OpenClash (科学内核与界面)"
         type: boolean
-        default: true
-      theme_argon:
-        description: "🎨 集成 Argon 主题"
+        default: false
+      app_passwall:
+        description: "🚀 集成 PassWall (老牌高阶科学插件)"
         type: boolean
-        default: true
+        default: false
       app_ksmbd:
         description: "📁 集成 KSMBD (局域网极速共享)"
         type: boolean
         default: true
 
       # ====== 常用扩展工具 (12个) ======
+      theme_argon:
+        description: "🎨 集成 Argon 主题 (仅主题无控制面板)"
+        type: boolean
+        default: true
       app_adguardhome:
         description: "🛑 集成 AdGuardHome (全网去广告)"
         type: boolean
@@ -50,22 +54,18 @@ on:
         description: "🗂️ 集成 AList (多存储网盘挂载)"
         type: boolean
         default: false
-      app_ttyd:
-        description: "📟 集成 TTYD (Web 终端控制台)"
+      app_qbittorrent:
+        description: "🧲 集成 qBittorrent (BT/PT 专业下载)"
         type: boolean
-        default: true
-      app_upnp:
-        description: "🎮 集成 UPnP (自动端口映射)"
+        default: false
+      app_mwan3:
+        description: "⚖️ 集成 MWAN3 (多线多拨/负载均衡)"
         type: boolean
-        default: true
-      app_wol:
-        description: "💻 集成 WOL (网络唤醒)"
+        default: false
+      app_vlmcsd:
+        description: "🔑 集成 KMS (Windows/Office 激活服务)"
         type: boolean
-        default: true
-      app_autoreboot:
-        description: "⏱️ 集成 AutoReboot (定时重启)"
-        type: boolean
-        default: true
+        default: false
       app_statistics:
         description: "📊 集成 Statistics (图形化状态监控)"
         type: boolean
@@ -126,14 +126,14 @@ jobs:
       INPUT_DOCKER: ${{ github.event.inputs.include_docker }}
       INPUT_APP_HOMEPROXY: ${{ github.event.inputs.app_homeproxy }}
       INPUT_APP_OPENCLASH: ${{ github.event.inputs.app_openclash }}
-      INPUT_THEME_ARGON: ${{ github.event.inputs.theme_argon }}
+      INPUT_APP_PASSWALL: ${{ github.event.inputs.app_passwall }}
       INPUT_APP_KSMBD: ${{ github.event.inputs.app_ksmbd }}
+      INPUT_THEME_ARGON: ${{ github.event.inputs.theme_argon }}
       INPUT_APP_ADGUARDHOME: ${{ github.event.inputs.app_adguardhome }}
       INPUT_APP_ALIST: ${{ github.event.inputs.app_alist }}
-      INPUT_APP_TTYD: ${{ github.event.inputs.app_ttyd }}
-      INPUT_APP_UPNP: ${{ github.event.inputs.app_upnp }}
-      INPUT_APP_WOL: ${{ github.event.inputs.app_wol }}
-      INPUT_APP_AUTOREBOOT: ${{ github.event.inputs.app_autoreboot }}
+      INPUT_APP_QBITTORRENT: ${{ github.event.inputs.app_qbittorrent }}
+      INPUT_APP_MWAN3: ${{ github.event.inputs.app_mwan3 }}
+      INPUT_APP_VLMCSD: ${{ github.event.inputs.app_vlmcsd }}
       INPUT_APP_STATISTICS: ${{ github.event.inputs.app_statistics }}
       INPUT_APP_SQM: ${{ github.event.inputs.app_sqm }}
       INPUT_APP_WIREGUARD: ${{ github.event.inputs.app_wireguard }}
@@ -182,14 +182,14 @@ jobs:
             -e INCLUDE_DOCKER="$INPUT_DOCKER" \
             -e APP_HOMEPROXY="$INPUT_APP_HOMEPROXY" \
             -e APP_OPENCLASH="$INPUT_APP_OPENCLASH" \
-            -e THEME_ARGON="$INPUT_THEME_ARGON" \
+            -e APP_PASSWALL="$INPUT_APP_PASSWALL" \
             -e APP_KSMBD="$INPUT_APP_KSMBD" \
+            -e THEME_ARGON="$INPUT_THEME_ARGON" \
             -e APP_ADGUARDHOME="$INPUT_APP_ADGUARDHOME" \
             -e APP_ALIST="$INPUT_APP_ALIST" \
-            -e APP_TTYD="$INPUT_APP_TTYD" \
-            -e APP_UPNP="$INPUT_APP_UPNP" \
-            -e APP_WOL="$INPUT_APP_WOL" \
-            -e APP_AUTOREBOOT="$INPUT_APP_AUTOREBOOT" \
+            -e APP_QBITTORRENT="$INPUT_APP_QBITTORRENT" \
+            -e APP_MWAN3="$INPUT_APP_MWAN3" \
+            -e APP_VLMCSD="$INPUT_APP_VLMCSD" \
             -e APP_STATISTICS="$INPUT_APP_STATISTICS" \
             -e APP_SQM="$INPUT_APP_SQM" \
             -e APP_WIREGUARD="$INPUT_APP_WIREGUARD" \
@@ -206,23 +206,22 @@ jobs:
       - name: Generate Smart Release Notes
         run: |
           cat > ${{ github.workspace }}/router-info.md <<EOF
-          ## 🚀 ImmortalWrt ${{ env.FINAL_VERSION }} 智能定制满配版
+          ## 🚀 ImmortalWrt ${{ env.FINAL_VERSION }} 究极定制满配版
           
           ## 📡 网络后台
           - 🏠 **管理地址**: \`$INPUT_IP\`
           - 👤 **默认账户**: \`root\`
           - 🔑 **默认密码**: *(无，请在初始设置时修改)*
-          - 🌐 **上网方式**: DHCP / 静态 IP
           
-          > 💡 **系统底层已预置增强包 (无需配置即刻生效)**: 
-          > \`irqbalance\`(多核性能优化)、\`zram-swap\`(防爆内存扩展)、\`iperf3\`(局域网极限测速)、\`kmod-virtio-net\`(PVE/KVM 驱动)、\`kmod-vmxnet3\`(ESXi 驱动) 以及必备命令行工具。
+          > 💡 **小巧巨能：底层已预置增强工具 (无需勾选即刻生效)**: 
+          > \`TTYD\`(终端)、\`UPnP\`(端口映射)、\`WOL\`(网络唤醒)、\`AutoReboot\`(定时重启)、\`RamFree\`(一键释放内存)、\`FileTransfer\`(网页传文件)。
           EOF
 
       - name: Upload ImmortWrt as release assets
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: Build-${{ env.DATE }}
-          name: ImmortalWrt ${{ env.FINAL_VERSION }} 定制版 (${{ github.event.inputs.custom_router_ip }})
+          name: ImmortalWrt ${{ env.FINAL_VERSION }} 究极版 (${{ github.event.inputs.custom_router_ip }})
           body_path: ${{ github.workspace }}/router-info.md
           files: |
             ${{ github.workspace }}/bin/targets/x86/64/*-ext4-combined-efi.img.gz
