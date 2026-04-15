@@ -8,7 +8,7 @@
 
 在编译之前，你必须知道你路由器的“身份证号”。
 
-1. 打开 ** [🔍 OP Arch & Profile Radar (设备号智能寻址雷达)](https://github.com/huchd0/openwrt-x86-64-build/actions/workflows/op_arch_profile_radar.yml) **。
+1. 打开 ** [🔍 OP Arch & Profile Radar（嵌入式设备寻址雷达）](https://github.com/huchd0/openwrt-x86-64-build/blob/master/.github/OP-Arch-Profile-Radar-README.md) **。
 2. 输入你的路由器型号（例如：`京东云一代` 或 `鲁班`），如果结果有问题，请通过多个参数交叉验证，务必得出正确架构 (Arch)和设备代号 (Profile)。
 3. 雷达会立刻为你扫描出两个核心参数，请务必记下：
    * **架构 (Arch)**：例如 `ramips-mt7621`
