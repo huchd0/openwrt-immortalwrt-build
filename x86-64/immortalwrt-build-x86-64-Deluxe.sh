@@ -277,6 +277,9 @@ ln -s ../init.d/install-ttyd files/etc/rc.d/S99install-ttyd
 # ==========================================
 echo "正在生成自动升级脚本与定时任务..."
 
+# 🌟 创建目录
+mkdir -p files/usr/bin
+
 cat << 'EOF_UPGRADE' > files/usr/bin/upg
 #!/bin/sh
 LOGFILE="/root/upg.log"
@@ -353,7 +356,6 @@ echo "" >> files/etc/crontabs/root
 
 # 🎯 赋予 crontab 正确的安全权限 (600)，否则计划任务会失效
 chmod 0600 files/etc/crontabs/root
-
 
 echo "=== 5. 配置 ImmortalWrt 专属软件列表 ==="
 
