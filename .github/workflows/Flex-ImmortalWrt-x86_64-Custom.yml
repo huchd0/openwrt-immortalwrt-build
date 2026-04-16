@@ -15,7 +15,7 @@ on:
         required: true
         default: "192.168.100.1"
       rootfs_size:
-        description: '核心系统最终容量 (MB) [SquashFS原生直出]'
+        description: '核心系统最终容量 (MB)'
         required: true
         default: '10240'
         
