@@ -26,7 +26,6 @@ echo "CONFIG_VDI_IMAGES=n" >> .config
 echo "CONFIG_VHDX_IMAGES=n" >> .config
 echo "CONFIG_QCOW2_IMAGES=n" >> .config
 echo "CONFIG_ISO_IMAGES=n" >> .config
-# 🚨 修复：已删除 CONFIG_GRUB_IMAGES=n，确保 combined-efi 镜像能顺利生成！
 
 # ==========================================
 # >>> 2. 准备初始化文件夹 <<<
