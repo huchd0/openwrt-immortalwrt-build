@@ -89,7 +89,7 @@ on:
         type: boolean
         default: false
       kmod_realtek:
-        description: "🔌 Realtek 瑞昱网卡驱动 (千兆/2.5G/5G)"
+        description: "🔌 Realtek 网卡驱动 (千兆/2.5G/5G)"
         type: boolean
         default: false
 
