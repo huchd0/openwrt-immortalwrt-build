@@ -21,75 +21,75 @@ on:
         
       # ====== 核心网络与存储 ======
       include_docker:
-        description: "🐳 集成 Docker 引擎 (虚拟化容器)"
+        description: "🐳 Docker 引擎 (虚拟化容器)"
         type: boolean
         default: true
       app_homeproxy:
-        description: "🛡️ 集成 HomeProxy (轻量代理工具)"
+        description: "🛡️ HomeProxy (轻量代理工具)"
         type: boolean
         default: true
       app_openclash:
-        description: "🔌 集成 OpenClash (全能代理工具)"
+        description: "🔌 OpenClash (全能代理工具)"
         type: boolean
         default: false
       app_passwall:
-        description: "🚀 集成 PassWall (经典的代理工具)"
+        description: "🚀 PassWall (经典的代理工具)"
         type: boolean
         default: false
       app_ksmbd:
-        description: "📁 集成 KSMBD (内网共享文件)"
+        description: "📁 KSMBD (内网共享文件)"
         type: boolean
         default: true
 
       # ====== 常用扩展工具 ======
       app_wechatpush:
-        description: "🔔 集成 WeChatPush (微信通知发送)"
+        description: "🔔 WeChatPush (微信通知发送)"
         type: boolean
         default: true
       app_diskman:
-        description: "💽 集成 Diskman (分区和格式化硬盘)"
+        description: "💽 Diskman (分区和格式化硬盘)"
         type: boolean
         default: true
       theme_argon:
-        description: "🎨 集成 Argon 主题 (高颜值后台界面)"
+        description: "🎨 Argon 主题 (高颜值后台界面)"
         type: boolean
         default: true
       app_adguardhome:
-        description: "🛑 集成 AdGuardHome (广告拦截与DNS)"
+        description: "🛑 AdGuardHome (广告拦截与DNS)"
         type: boolean
         default: false
       app_alist:
-        description: "🗂️ 集成 AList (网盘挂载成本地硬盘)"
+        description: "🗂️ AList (网盘挂载成本地硬盘)"
         type: boolean
         default: false
       app_qbittorrent:
-        description: "🧲 集成 qBittorrent (PT/BT离线下载)"
+        description: "🧲 qBittorrent (PT/BT离线下载)"
         type: boolean
         default: false
       app_statistics:
-        description: "📊 集成 Statistics (CPU/内存/网络图)"
+        description: "📊 Statistics (CPU/内存/网络图)"
         type: boolean
         default: false
       app_wireguard:
-        description: "🛡️ 集成 WireGuard (内核级虚拟局域网)"
+        description: "🛡️ WireGuard (内核级虚拟局域网)"
         type: boolean
         default: false
       app_tailscale:
-        description: "🕸️ 集成 Tailscale (内网穿透)"
+        description: "🕸️ Tailscale (内网穿透)"
         type: boolean
         default: false
       app_zerotier:
-        description: "🌍 集成 ZeroTier (老牌虚拟穿透工具)"
+        description: "🌍 ZeroTier (老牌虚拟穿透工具)"
         type: boolean
         default: false
 
       # ====== 实体网卡驱动 ======
       kmod_igc:
-        description: "🔌 驱动: Intel i225/i226 (网卡驱动)"
+        description: "🔌 Intel i225/i226 (网卡驱动)"
         type: boolean
         default: true
       kmod_r8125:
-        description: "🔌 驱动: Realtek 瑞昱 2.5G (网卡驱动)"
+        description: "🔌 Realtek 瑞昱 2.5G (网卡驱动)"
         type: boolean
         default: false
 
