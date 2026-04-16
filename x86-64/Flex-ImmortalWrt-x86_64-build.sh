@@ -126,28 +126,36 @@ BASE_PACKAGES="$BASE_PACKAGES luci-app-statistics luci-i18n-statistics-zh-cn"   
 BASE_PACKAGES="$BASE_PACKAGES collectd collectd-mod-cpu collectd-mod-interface collectd-mod-memory" # 监控采集引擎
 
 # =========================================================
-# 3. 动态加载 UI 勾选的大插件
+# 3. 动态加载 UI 勾选的插件 (按功能严格分类)
 # =========================================================
-[ "$THEME_ARGON" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-theme-argon"
+
+# 🌐 科学上网 & 代理路由
 [ "$APP_HOMEPROXY" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-homeproxy luci-i18n-homeproxy-zh-cn"
 [ "$APP_OPENCLASH" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-openclash"
-[ "$APP_PASSWALL" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-passwall luci-i18n-passwall-zh-cn"
-[ "$APP_KSMBD" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-ksmbd luci-i18n-ksmbd-zh-cn"
-[ "$APP_ADGUARDHOME" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-adguardhome"
-[ "$APP_ALIST" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-alist"
-[ "$APP_QBITTORRENT" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-qbittorrent luci-i18n-qbittorrent-zh-cn"
+[ "$APP_PASSWALL" = "true" ]  && BASE_PACKAGES="$BASE_PACKAGES luci-app-passwall luci-i18n-passwall-zh-cn"
+
+# 🌍 VPN & 内网穿透组网
 [ "$APP_WIREGUARD" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-proto-wireguard"
 [ "$APP_TAILSCALE" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES tailscale"
-[ "$APP_ZEROTIER" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-zerotier luci-i18n-zerotier-zh-cn"
+[ "$APP_ZEROTIER" = "true" ]  && BASE_PACKAGES="$BASE_PACKAGES luci-app-zerotier luci-i18n-zerotier-zh-cn"
 
-# 🌟 新增：全平台推送与磁盘管理
-[ "$APP_WECHATPUSH" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-wechatpush luci-i18n-wechatpush-zh-cn"
-[ "$APP_DISKMAN" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-diskman luci-i18n-diskman-zh-cn"
+# 💾 NAS 存储 & 下载工具
+[ "$APP_DISKMAN" = "true" ]   && BASE_PACKAGES="$BASE_PACKAGES luci-app-diskman luci-i18n-diskman-zh-cn"
+[ "$APP_KSMBD" = "true" ]     && BASE_PACKAGES="$BASE_PACKAGES luci-app-ksmbd luci-i18n-ksmbd-zh-cn"
+[ "$APP_ALIST" = "true" ]     && BASE_PACKAGES="$BASE_PACKAGES luci-app-alist"
+[ "$APP_QBITTORRENT" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-qbittorrent luci-i18n-qbittorrent-zh-cn"
 
-# 🌟 整合版网卡驱动动态加载 (涵盖常用千兆/2.5G/5G/万兆)
-[ "$KMOD_INTEL" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-e1000e kmod-igc kmod-ixgbe"
-[ "$KMOD_REALTEK" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-r8169 kmod-r8125 kmod-r8126 kmod-r8152 kmod-r8153"
-[ "$INCLUDE_DOCKER" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker-compose"
+# 🛠️ 系统增强 & 实用工具
+[ "$INCLUDE_DOCKER" = "true" ]  && BASE_PACKAGES="$BASE_PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker-compose"
+[ "$APP_ADGUARDHOME" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-adguardhome"
+[ "$APP_WECHATPUSH" = "true" ]  && BASE_PACKAGES="$BASE_PACKAGES luci-app-wechatpush luci-i18n-wechatpush-zh-cn"
+
+# 🎨 主题 UI
+[ "$THEME_ARGON" = "true" ]     && BASE_PACKAGES="$BASE_PACKAGES luci-theme-argon"
+
+# 🔌 整合版网卡驱动合集 (Intel / Realtek)
+[ "$KMOD_INTEL" = "true" ]      && BASE_PACKAGES="$BASE_PACKAGES kmod-e1000e kmod-igc kmod-ixgbe"
+[ "$KMOD_REALTEK" = "true" ]    && BASE_PACKAGES="$BASE_PACKAGES kmod-r8169 kmod-r8125 kmod-r8126 kmod-r8152 kmod-r8153"
 
 # =========================================================
 # 4. 极限打包
