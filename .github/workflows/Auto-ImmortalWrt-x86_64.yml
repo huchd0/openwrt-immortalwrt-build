@@ -212,9 +212,7 @@ jobs:
           name: ImmortalWrt Auto ${{ env.FINAL_VERSION }} 究极全能版
           body: |
             ### 🛠️ 终极架构与特性
-            - **架构回归**: 重新采用官方正统 `squashfs` 架构，底层自带 Overlay 保护机制，彻底告别报错。
-            - **原生重置**: 系统后台“备份与升级”中的**恢复出厂设置**按钮现已完美可用。
-            - **无损出包**: 系统盘直接在云端构建为 ${{ env.INPUT_ROOTFS }}MB，刷入即满血。
+            - **无损出包**: 系统盘直接在云端构建为 ${{ env.INPUT_ROOTFS }}MB。
             - **专属网络**: 强制 eth0 独占 WAN，其余网口桥接 LAN；单网口自动切换纯旁路由模式。
             - **自由定制**: 支持在 GitHub 编译前自选组装超过 20+ 款高阶路由插件。
           files: ${{ github.workspace }}/bin/targets/x86/64/${{ env.FIRMWARE_NAME }}
