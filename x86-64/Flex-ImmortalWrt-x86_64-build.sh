@@ -144,9 +144,9 @@ BASE_PACKAGES="$BASE_PACKAGES collectd collectd-mod-cpu collectd-mod-interface c
 [ "$APP_WECHATPUSH" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-wechatpush luci-i18n-wechatpush-zh-cn"
 [ "$APP_DISKMAN" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-diskman luci-i18n-diskman-zh-cn"
 
-# 网卡驱动动态加载
-[ "$KMOD_IGC" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-igc"
-[ "$KMOD_R8125" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-r8125"
+# 🌟 整合版网卡驱动动态加载 (涵盖常用千兆/2.5G/5G/万兆)
+[ "$KMOD_INTEL" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-e1000e kmod-igc kmod-ixgbe"
+[ "$KMOD_REALTEK" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-r8169 kmod-r8125 kmod-r8126 kmod-r8152 kmod-r8153"
 [ "$INCLUDE_DOCKER" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker-compose"
 
 # =========================================================
