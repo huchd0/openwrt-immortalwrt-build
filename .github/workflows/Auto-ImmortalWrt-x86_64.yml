@@ -1,4 +1,4 @@
-name: Auto-ImmortalWrt-x86_64-手选稳定版
+name: Flex-ImmortalWrt-x86_64-Custom-手选稳定版
 
 on:
   workflow_dispatch:
@@ -195,24 +195,24 @@ jobs:
             -e KMOD_R8125="$KMOD_R8125" \
             immortalwrt/imagebuilder:x86-64-openwrt-${{ env.FINAL_VERSION }} /bin/bash /home/build/immortalwrt/build.sh
 
-      - name: 重命名固件 (加上 Auto 标识)
+      - name: 重命名专属固件
         run: |
           cd ${{ github.workspace }}/bin/targets/x86/64/
           ORIGINAL_FILE=$(ls *-squashfs-combined-efi.img.gz | head -n 1)
-          NEW_NAME="ImmortalWrt-Auto-${{ env.FINAL_VERSION }}-x86-64-squashfs-efi.img.gz"
+          NEW_NAME="Flex-ImmortalWrt-Custom-${{ env.FINAL_VERSION }}-x86-64-squashfs-efi.img.gz"
           sudo mv "$ORIGINAL_FILE" "$NEW_NAME"
           echo "FIRMWARE_NAME=$NEW_NAME" >> $GITHUB_ENV
 
       - name: 发布固件到 Releases
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: Build-Auto-${{ env.FINAL_VERSION }}
-          name: ImmortalWrt Auto ${{ env.FINAL_VERSION }} 究极全能版
+          tag_name: Build-Custom-${{ env.FINAL_VERSION }}
+          name: Flex-ImmortalWrt ${{ env.FINAL_VERSION }} 手选稳定版
           body: |
-            ### 🛠️ 终极架构与特性
-            - **无损出包**: 系统盘直接在云端构建为 ${{ env.INPUT_ROOTFS }}MB，底层自带 Overlay 保护机制。
+            ### 🛠️ 终极架构与专属特性
+            - **无损出包**: 系统盘直接在云端构建为 ${{ env.INPUT_ROOTFS }}MB。
             - **专属网络**: 强制 eth0 独占 WAN，其余网口桥接 LAN；单网口自动切换纯旁路由模式。
-            - **源与数据**: 官方源自动修正，Collectd 监控数据转移至 /opt 保障闪存寿命。
-            - **极客精简**: 剔除了官方冗余底包，纯粹的极致效能体验。
+            - **源与数据**: 官方源强制修正，Collectd 监控数据转移至 /opt 保障闪存寿命。
+            - **极致灵活**: 基于 Flex 构建理念，按需自由定制，纯粹的极致效能体验。
           files: ${{ github.workspace }}/bin/targets/x86/64/${{ env.FIRMWARE_NAME }}
           token: ${{ secrets.GITHUB_TOKEN }}
