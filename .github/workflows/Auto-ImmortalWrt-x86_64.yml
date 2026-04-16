@@ -1,4 +1,4 @@
-name: Auto-ImmortalWrt-x86_64-终极稳定版
+name: Auto-ImmortalWrt-x86_64-手选稳定版
 
 on:
   workflow_dispatch:
