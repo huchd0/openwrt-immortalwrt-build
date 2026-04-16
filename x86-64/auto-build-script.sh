@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =========================================================
-# 0. 云端预处理：预下载 OpenClash 兼容版核心 (解决 Illegal Instruction)
+# 0. 云端预处理：预下载 OpenClash 兼容版核心
 # =========================================================
 mkdir -p files/etc/openclash/core
 if [ "$APP_OPENCLASH" = "true" ]; then
@@ -16,35 +16,31 @@ if [ "$APP_OPENCLASH" = "true" ]; then
 fi
 
 # =========================================================
-# 1. 初始化脚本与必备工具
+# 1. 初始化脚本
 # =========================================================
 mkdir -p files/etc/uci-defaults
 DYNAMIC_SCRIPT="files/etc/uci-defaults/99-dynamic-settings"
 echo "#!/bin/sh" > $DYNAMIC_SCRIPT
 
-# 强化工具包
-BASE_PACKAGES="base-files block-mount default-settings-chn luci-i18n-base-zh-cn sgdisk parted e2fsprogs fdisk lsblk blkid tar"
-BASE_PACKAGES="$BASE_PACKAGES luci-i18n-package-manager-zh-cn htop curl wget-ssl kmod-vmxnet3"
+BASE_PACKAGES="base-files block-mount default-settings-chn luci-i18n-base-zh-cn lsblk blkid tar"
+BASE_PACKAGES="$BASE_PACKAGES luci-i18n-package-manager-zh-cn irqbalance htop curl wget-ssl kmod-vmxnet3"
 
 # =========================================================
-# 🌟 核心魔法：暴力重建网络、安全强制扩容、只读解除
+# 🌟 核心魔法：纯净网络与数据绝对保守策略
 # =========================================================
 cat >> $DYNAMIC_SCRIPT << EOF
-# 解除系统只读状态 (防止配置无法保存)
-mount -o remount,rw /
+exec >/var/log/first_boot.log 2>&1
 
-# --- A. 彻底推倒重建网络配置 (消灭 Ghost eth0) ---
+# --- A. 彻底推倒重建网络配置 ---
 INTERFACES=\$(ls /sys/class/net 2>/dev/null | grep -E '^eth|^enp|^eno' | sort)
 ETH_COUNT=\$(echo "\$INTERFACES" | grep -c '^')
 
 if [ "\$ETH_COUNT" -gt 0 ]; then
     FIRST_ETH=\$(echo "\$INTERFACES" | head -n 1)
     
-    # 彻底抹除旧配置
     rm -f /etc/config/network
     touch /etc/config/network
     
-    # 重新生成最纯净的基础配置
     uci set network.loopback=interface
     uci set network.loopback.device='lo'
     uci set network.loopback.proto='static'
@@ -64,7 +60,6 @@ if [ "\$ETH_COUNT" -gt 0 ]; then
     if [ "\$ETH_COUNT" -eq 1 ]; then
         uci add_list network.br_lan.ports="\$FIRST_ETH"
     else
-        # eth0 为 WAN，其余为 LAN
         uci set network.wan=interface
         uci set network.wan.device="\$FIRST_ETH"
         uci set network.wan.proto='dhcp'
@@ -80,30 +75,13 @@ if [ "\$ETH_COUNT" -gt 0 ]; then
     uci commit network
 fi
 
-# --- B. 强制磁盘同步与 10GB 扩容 (sda2) ---
+# --- B. 数据盘安全检测挂载 (sda3) ---
+# 严格遵循：不新建、不格式化。只要物理存在且有文件系统，就尝试挂载。
 ROOT_DISK=\$(lsblk -d -n -o NAME | grep -E 'sda|nvme[0-9]n[0-9]' | head -n 1)
 if [ -n "\$ROOT_DISK" ]; then
     DISK_DEV="/dev/\$ROOT_DISK"
-    echo "\$ROOT_DISK" | grep -q "nvme" && P2="\${DISK_DEV}p2" && P3="\${DISK_DEV}p3" || P2="\${DISK_DEV}2" && P3="\${DISK_DEV}3"
+    echo "\$ROOT_DISK" | grep -q "nvme" && P3="\${DISK_DEV}p3" || P3="\${DISK_DEV}3"
 
-    # 1. 修复 GPT 表
-    sgdisk -e \$DISK_DEV || true
-    sync && sleep 2
-
-    # 2. 扩容分区表
-    parted -s \$DISK_DEV resizepart 2 ${ROOTFS_SIZE}MiB || true
-    sync && sleep 2
-    
-    # 3. 强制触发内核刷新分区表缓存
-    if command -v partx >/dev/null; then
-        partx -u \$DISK_DEV || true
-    fi
-    
-    # 4. 在线拉伸文件系统 (关键：确保系统盘不再是 1GB)
-    resize2fs \$P2 || true
-    sync
-
-    # --- C. 数据盘安全检测挂载 (sda3) ---
     if [ -b "\$P3" ]; then
         P3_UUID=\$(blkid -s UUID -o value \$P3)
         if [ -n "\$P3_UUID" ]; then
@@ -120,6 +98,10 @@ if [ -n "\$ROOT_DISK" ]; then
             
             if mountpoint -q /opt; then
                 [ ! -f /opt/backup/factory_config.tar.gz ] && tar -czf /opt/backup/factory_config.tar.gz /etc/config /etc/passwd /etc/shadow 2>/dev/null
+                if [ -f /etc/config/statistics ]; then
+                    uci set statistics.collectd.Datadir='/opt/collectd_rrd'
+                    uci commit statistics
+                fi
             fi
         fi
     fi
@@ -140,21 +122,42 @@ chmod +x /bin/restore-factory
 EOF
 
 # =========================================================
-# 2. 插件选择
+# 2. 插件组装
 # =========================================================
-BASE_PACKAGES="$BASE_PACKAGES irqbalance iperf3 luci-i18n-package-manager-zh-cn"
 [ "$THEME_ARGON" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-theme-argon"
-[ "$INCLUDE_DOCKER" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker-compose"
+[ "$APP_HOMEPROXY" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-homeproxy luci-i18n-homeproxy-zh-cn"
 [ "$APP_OPENCLASH" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-openclash"
+[ "$APP_PASSWALL" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-passwall luci-i18n-passwall-zh-cn"
+[ "$APP_KSMBD" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-ksmbd luci-i18n-ksmbd-zh-cn"
+[ "$APP_ADGUARDHOME" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-adguardhome"
+[ "$APP_ALIST" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-alist"
+[ "$APP_QBITTORRENT" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-qbittorrent luci-i18n-qbittorrent-zh-cn"
+[ "$APP_MWAN3" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-mwan3 luci-i18n-mwan3-zh-cn"
+[ "$APP_VLMCSD" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-vlmcsd luci-i18n-vlmcsd-zh-cn"
+[ "$APP_STATISTICS" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-statistics luci-i18n-statistics-zh-cn collectd collectd-mod-cpu collectd-mod-interface collectd-mod-memory"
+[ "$APP_SQM" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-sqm luci-i18n-sqm-zh-cn"
+[ "$APP_WIREGUARD" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-proto-wireguard"
+[ "$APP_TAILSCALE" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES tailscale"
+[ "$APP_ZEROTIER" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-zerotier luci-i18n-zerotier-zh-cn"
+[ "$APP_FRPC" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-frpc luci-i18n-frpc-zh-cn"
+
+[ "$KMOD_IGC" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-igc"
+[ "$KMOD_IXGBE" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-ixgbe"
+[ "$KMOD_E1000E" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-e1000e"
+[ "$KMOD_R8169" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-r8169"
+[ "$KMOD_R8125" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES kmod-r8125"
+[ "$INCLUDE_DOCKER" = "true" ] && BASE_PACKAGES="$BASE_PACKAGES luci-app-dockerman luci-i18n-dockerman-zh-cn docker-compose"
 
 # =========================================================
-# 4. 极致打包：只保留 ext4-EFI，禁止生成其他冗余格式
+# 4. 极限打包：直接在云端生成原生大容量镜像
 # =========================================================
 echo "uci commit" >> $DYNAMIC_SCRIPT
 echo "exit 0" >> $DYNAMIC_SCRIPT
 chmod +x $DYNAMIC_SCRIPT
 
-sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=1024/g" .config || echo "CONFIG_TARGET_ROOTFS_PARTSIZE=1024" >> .config
+# 重点！直接使用你在网页填写的 ROOTFS_SIZE 变量
+# 如果填写 10240，云端直接打包出一个完美 10GB 原生 ext4 镜像！
+sed -i "s/CONFIG_TARGET_ROOTFS_PARTSIZE=.*/CONFIG_TARGET_ROOTFS_PARTSIZE=${ROOTFS_SIZE}/g" .config || echo "CONFIG_TARGET_ROOTFS_PARTSIZE=${ROOTFS_SIZE}" >> .config
 sed -i "s/CONFIG_TARGET_KERNEL_PARTSIZE=.*/CONFIG_TARGET_KERNEL_PARTSIZE=64/g" .config || echo "CONFIG_TARGET_KERNEL_PARTSIZE=64" >> .config
 
 echo "CONFIG_TARGET_ROOTFS_EXT4FS=y" >> .config
