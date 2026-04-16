@@ -16,9 +16,9 @@ on:
         type: choice
         options:
           - 'latest'
+          - '24.10.0-rc3'
           - '23.05.5'
           - '23.05.4'
-          # 你可以继续在这里添加需要的具体版本号
       profile:
         description: 'RootFS 分区大小 (单位: MB)'
         required: true
@@ -63,7 +63,7 @@ jobs:
           echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
           echo "| 🌐 **官方最新版本** | \`$OFFICIAL_LATEST\` |" >> $GITHUB_STEP_SUMMARY
           echo "| 🏠 **本地最后发布** | \`$MY_LATEST\` |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY # 空行分隔
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           # 3. 智能判断逻辑
           if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
@@ -126,7 +126,6 @@ jobs:
           # 查找生成的 img 或 img.gz 文件，取体积最大的那个计算大小
           FIRMWARE_SIZE=$(find imagebuilder/output-firmware/ -type f \( -name "*.img" -o -name "*.img.gz" \) -exec du -sh {} + | sort -hr | head -n 1 | awk '{print $1}')
           
-          # 兜底逻辑：如果没匹配到特定后缀，就计算整个输出文件夹的总大小
           if [ -z "$FIRMWARE_SIZE" ]; then
             FIRMWARE_SIZE=$(du -sh imagebuilder/output-firmware/ | awk '{print $1}')
           fi
@@ -134,13 +133,12 @@ jobs:
           echo "FIRMWARE_SIZE=$FIRMWARE_SIZE" >> $GITHUB_ENV
           echo "检测到固件实际大小为: $FIRMWARE_SIZE"
           
-          # 追加编译成功信息到摘要面板
+          # 🌟 写入带超链接的最终摘要
           echo "### 🎉 编译成功" >> $GITHUB_STEP_SUMMARY
           echo "- **固件体积:** \`${FIRMWARE_SIZE}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **下载地址:** [👉 点击此处前往 Releases 页面下载固件](https://github.com/${{ github.repository }}/releases/tag/OpenWrt-Latest)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-
 
       - name: 🗑️ 清理旧的同名 Release
         if: steps.check_version.outputs.SHOULD_BUILD == 'true'
