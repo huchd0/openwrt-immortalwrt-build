@@ -1,17 +1,25 @@
 #!/bin/bash
 
 # =========================================================
-# 0. 云端预处理：预下载 OpenClash 核心 (修正版本与命名)
+# 0. 云端预处理：预下载 OpenClash 核心 (最强兼容版)
 # =========================================================
 mkdir -p files/etc/openclash/core
 if [ "$APP_OPENCLASH" = "true" ]; then
-    echo ">>> 正在下载 OpenClash Meta 核心 (amd64)..."
-    CORE_URL="https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-amd64.tar.gz"
+    echo ">>> 正在下载 OpenClash Meta 内核 (amd64-compatible)..."
+    CORE_URL="https://raw.githubusercontent.com/vernesong/OpenClash/core/master/meta/clash-linux-amd64-compatible.tar.gz"
+    
+    # 先下载到临时文件，利用 curl 的 --retry 增加网络容错
     curl -sL --retry 3 "$CORE_URL" -o meta.tar.gz
+    
+    # 严格查验压缩包是否完整（防止下载到 404 网页或空文件）
     if tar -tzf meta.tar.gz >/dev/null 2>&1; then
-        tar -zxf meta.tar.gz
-        mv clash files/etc/openclash/core/clash_meta
+        # 借用你的管道流操作：直接提取并重命名！
+        tar -xOzf meta.tar.gz > files/etc/openclash/core/clash_meta
         chmod +x files/etc/openclash/core/clash_meta
+        rm -f meta.tar.gz
+        echo "✅ OpenClash Meta 兼容版内核下载并配置成功！"
+    else
+        echo "⚠️ 警告: OpenClash 内核下载失败，文件损坏或链接失效。"
         rm -f meta.tar.gz
     fi
 fi
