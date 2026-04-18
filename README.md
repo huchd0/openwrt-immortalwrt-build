@@ -49,8 +49,8 @@
   💻 TTYD 网页终端
 
      
-## 刷好系统后，肯定要网络配置，推荐一款轻量的网络配置向导
-   提供了一键智能安装脚本。无论老系统还是新系统，只需在 SSH 终端中直接复制并执行以下单行命令，即可自动完成【判断系统 -> 下载 -> 安装 -> 清理缓存】的全流程：
+## 刷好系统后，肯定要网络配置，推荐一款轻量的网络配置向导[luci-app-netwiz](https://github.com/huchd0/luci-app-netwiz)
+   netwiz提供了一键智能安装脚本。无论老系统还是新系统，只需在 SSH 终端中直接复制并执行以下单行命令，即可自动完成【判断系统 -> 下载 -> 安装 -> 清理缓存】的全流程：
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/huchd0/luci-app-netwiz/master/install.sh | sh
