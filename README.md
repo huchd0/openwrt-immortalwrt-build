@@ -1,3 +1,5 @@
+![OpenWrt](https://img.shields.io/badge/OpenWrt-Supported-blue.svg) ![ImmortalWrt](https://img.shields.io/badge/ImmortalWrt-Supported-orange.svg) ![Build](https://img.shields.io/badge/Build-Passing-brightgreen.svg)
+
 # 编译时用的是openwrt官方源（极速构建），运行阶段被替换成了中科大源（长期维护） / openWrt 每日官方检测-有新版本则自动构建更新
 
 # immortalwrt纯正血统构建、手选软件构建应用尽有
