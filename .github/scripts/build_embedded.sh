@@ -91,7 +91,7 @@ elif [ "$BUILD_MODE" == "Extroot" ]; then
 elif [ "$BUILD_MODE" == "Extroot" ]; then
     echo ">>> 💾 [扩容模式] 注入存储驱动与新版装机逻辑..."
     # 新增 kmod-mmc-mtk，兼容京东云等内置 TF/eMMC 卡槽的设备
-    PKGS="$PKGS block-mount e2fsprogs kmod-fs-ext4 kmod-usb-core kmod-usb3 kmod-usb-storage kmod-mmc-mtk fdisk"
+    PKGS="$PKGS block-mount e2fsprogs kmod-fs-ext4 kmod-usb-core kmod-usb3 kmod-usb-storage kmod-mmc-mtk kmod-sdhci-mt7620 fdisk"
     PKGS="$PKGS -luci-app-openclash"
     
     # 💥 全自动扩容与后台装机脚本 (注入到路由器开机任务)
