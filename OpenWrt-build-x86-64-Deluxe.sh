@@ -124,6 +124,10 @@ chmod +x files/etc/init.d/wifi-auto-patch
 cat << EOF > files/etc/uci-defaults/99-custom-setup
 #!/bin/sh
 
+# 0. 接管首次开机向导 (Netwiz)
+uci set luci.main.index='admin/netwiz'
+uci commit luci
+
 # 1. 注册 Wi-Fi 智能补全服务
 /etc/init.d/wifi-auto-patch enable
 
