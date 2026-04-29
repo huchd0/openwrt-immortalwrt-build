@@ -54,7 +54,7 @@ if [ -n "$ARGON_URL" ]; then
     wget -qO files/root/luci-theme-argon.apk "$ARGON_URL"
 fi
 
-# --- 🎯 抓取 NetWiz 网络向导  ---
+# --- 🎯 抓取 NetWiz 网络向导 ---
 echo "正在获取 Netwiz 所有 APK ..."
 curl -sL https://api.github.com/repos/sdxmhs/luci-app-netwizs/releases | \
 jq -r '.[0].assets[] | select(.name | endswith(".apk")) | .browser_download_url' | \
@@ -126,10 +126,6 @@ chmod +x files/etc/init.d/wifi-auto-patch
 
 cat << EOF > files/etc/uci-defaults/99-custom-setup
 #!/bin/sh
-
-# 0. 接管首次开机向导 (Netwiz)
-uci set luci.main.index='admin/netwiz'
-uci commit luci
 
 # 1. 注册 Wi-Fi 智能补全服务
 /etc/init.d/wifi-auto-patch enable
@@ -271,12 +267,6 @@ fi
 
 apk add -q --allow-untrusted /root/*.apk
 rm -f /root/*.apk
-
-# 强制刷新系统权限与 LuCI 缓存！
-# 1. 清空旧版网页缓存
-rm -rf /tmp/luci-*
-# 2. 重启权限守护进程，让netwiz 插件有访问权限
-/etc/init.d/rpcd restart
 
 rm -f /etc/uci-defaults/99-custom-setup
 exit 0
